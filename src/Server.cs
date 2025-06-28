@@ -1,9 +1,17 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 
-// You can use print statements as follows for debugging, they'll be visible when running tests.
-Console.WriteLine("Logs from your program will appear here!");
+using var listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
+listenSocket.Bind(new IPEndPoint(IPAddress.Any, 6379));
 
-TcpListener server = new TcpListener(IPAddress.Any, 6379);
-server.Start();
-server.AcceptSocket(); // wait for client
+listenSocket.Listen();
+while (true)
+{
+    // Wait for a new connection to arrive
+    var connection = await listenSocket.AcceptAsync();
+
+    var response = "+PONG\r\n";
+
+    await connection.SendAsync(Encoding.UTF8.GetBytes(response));
+}
