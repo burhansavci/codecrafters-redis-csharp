@@ -4,6 +4,8 @@ using System.Text;
 using codecrafters_redis.RESP;
 using Array = codecrafters_redis.RESP.Array;
 
+var db = new Dictionary<string, string>();
+
 using var listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
 listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, 6379));
 
@@ -33,10 +35,15 @@ async Task HandleConnectionAsync(Socket connection)
 
             BulkString command = (BulkString)array.Items.First();
             
+            if(command.Data == "SET")
+                db[(BulkString)array.Items[1]] = ((BulkString)array.Items[2]).Data!;
+            
             string response = command.Data switch
             {
                 "PING" => new SimpleString("PONG"),
                 "ECHO" => (BulkString)array.Items.Last(),
+                "SET" => new SimpleString("OK"),
+                "GET" => db.TryGetValue((BulkString)array.Items.Last(), out var value) ? new BulkString(value) : new BulkString(null),
                 _ => ""
             };
 
