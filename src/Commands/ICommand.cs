@@ -1,8 +1,9 @@
+using System.Net.Sockets;
+using codecrafters_redis.RESP;
+
 namespace codecrafters_redis.Commands;
 
-public interface ICommand<out TResult> : IBaseCommand;
-
-public interface IBaseCommand
+public interface ICommand
 {
-    public static string Name => null!;
+    Task Handle(Socket connection, RespObject[] args);
 }

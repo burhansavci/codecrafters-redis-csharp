@@ -1,8 +1,11 @@
 using codecrafters_redis;
 using codecrafters_redis.Commands;
 
-var mediator = new Mediator();
+var redisServer = new Server();
 
-var redisServer = new Server(mediator);
+redisServer.RegisterCommand(PingCommand.Name, new PingCommand());
+redisServer.RegisterCommand(EchoCommand.Name, new EchoCommand());
+redisServer.RegisterCommand(GetCommand.Name, new GetCommand(redisServer));
+redisServer.RegisterCommand(SetCommand.Name, new SetCommand(redisServer));
+
 await redisServer.StartAsync();
-
