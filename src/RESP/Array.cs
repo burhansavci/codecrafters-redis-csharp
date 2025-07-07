@@ -1,8 +1,12 @@
+using System.Text;
+
 namespace codecrafters_redis.RESP;
 
 public record Array(params RespObject[] Items) : RespObject(DataType.Array)
 {
     public int Length => Items.Length;
+    
+    public static implicit operator string(Array array) => array.ToString();
 
     public static Array Parse(string data)
     {
@@ -67,5 +71,20 @@ public record Array(params RespObject[] Items) : RespObject(DataType.Array)
             throw new FormatException($"Expected {arrayLength} elements, but parsed {itemIndex}");
 
         return new Array(items);
+    }
+
+    public override string ToString()
+    {
+        var header = $"{FirstByte}{Length}{CRLF}";
+
+        StringBuilder sb = new();
+
+        foreach (var respObject in Items)
+            if (respObject is BulkString bulkString)
+                sb.Append(bulkString);
+            else
+                throw new NotImplementedException();
+
+        return header + sb;
     }
 }
