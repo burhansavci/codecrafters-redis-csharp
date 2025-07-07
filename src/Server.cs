@@ -7,8 +7,10 @@ using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis;
 
-public class Server
+public class Server(Dictionary<string, string> config)
 {
+    public Dictionary<string, string> Config { get; } = config;
+
     public readonly Dictionary<string, Record> Db = new();
     private readonly Dictionary<string, ICommand> _commands = [];
 
@@ -47,16 +49,10 @@ public class Server
 
                 var request = Encoding.UTF8.GetString(buffer[..read]);
 
-                var array = Array.Parse(request);
+                var (commandName, args) = ParseCommandAndArgs(request);
 
-                BulkString commandMessage = (BulkString)array.Items.First();
-
-                var commandName = commandMessage.Data!;
-
-                if (!_commands.TryGetValue(commandName, out var command))
+                if (!_commands.TryGetValue(commandName.ToUpperInvariant(), out var command))
                     throw new ArgumentException($"Command not found: {commandName}");
-
-                var args = array.Items.Skip(1).Select(x => x).ToArray();
 
                 await command.Handle(connection, args);
             }
@@ -69,6 +65,25 @@ public class Server
         {
             connection.Dispose();
         }
+    }
+
+    private static (string CommandName, RespObject[] Args) ParseCommandAndArgs(string request)
+    {
+        var array = Array.Parse(request);
+        var commandMessage = (BulkString)array.Items.First();
+        var commandName = commandMessage.Data!;
+        var skip = 1;
+
+        const string config = "CONFIG";
+        if (commandName == config)
+        {
+            commandName += $" {((BulkString)array.Items[1]).Data}";
+            skip = 2;
+        }
+
+        var args = array.Items.Skip(skip).ToArray();
+
+        return (commandName, args);
     }
 
     private Task SweepExpiredKeys()
