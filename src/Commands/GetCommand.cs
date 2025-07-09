@@ -18,16 +18,21 @@ public class GetCommand(Server server) : ICommand
         if (args[0] is not BulkString key)
             throw new FormatException("Invalid key format. Expected bulk string.");
 
-        var value = server.Db.TryGetValue(key.Data!, out var record) ? new BulkString(record.Value) : new BulkString(null);
+        var keyData = key.Data!;
 
-        if (value.Data is null)
-        {
-            using var reader = new RdbReader(server.DbDirectory, server.DbFileName);
-            var db = reader.Read();
-
-            value = db.TryGetValue(key.Data!, out var rawValue) ? new BulkString(rawValue) : new BulkString(null);
-        }
+        var value = server.Db.TryGetValue(keyData, out var record) ? new BulkString(record.Value) : GetValueFromRdb(keyData);
 
         await connection.SendAsync(Encoding.UTF8.GetBytes(value));
+    }
+    
+    private BulkString GetValueFromRdb(string key)
+    {
+        using var reader = new RdbReader(server.DbDirectory, server.DbFileName);
+        var db = reader.Read();
+
+        if (!db.TryGetValue(key, out var rdbRecord) || rdbRecord.IsExpired)
+            return new BulkString(null);
+
+        return new BulkString(rdbRecord.Value);
     }
 }

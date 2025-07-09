@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.Commands;
+using codecrafters_redis.Rdb;
 using codecrafters_redis.RESP;
 using Array = codecrafters_redis.RESP.Array;
 
@@ -95,7 +96,7 @@ public class Server(Dictionary<string, string> config)
             DateTime utcNow = DateTime.UtcNow;
 
             foreach (var (key, record) in Db)
-                if (record.ExpireAt is not null && record.ExpireAt < utcNow)
+                if (record.IsExpired)
                     Db.Remove(key);
         }
     }
