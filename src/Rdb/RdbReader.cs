@@ -3,7 +3,7 @@ namespace codecrafters_redis.Rdb;
 public class RdbReader : IDisposable
 {
     private readonly BinaryReader? _reader;
-    private readonly Dictionary<string, string> _data = new();
+    private readonly Dictionary<string, Record> _data = new();
 
     public RdbReader(string directory, string fileName)
     {
@@ -13,7 +13,7 @@ public class RdbReader : IDisposable
             _reader = new BinaryReader(File.OpenRead(path));
     }
 
-    public Dictionary<string, string> Read()
+    public Dictionary<string, Record> Read()
     {
         if (_reader is null)
             return _data;
@@ -45,12 +45,14 @@ public class RdbReader : IDisposable
                     _reader.ReadSizeEncoded(); // expiryHashTableSize
                     break;
                 case FileSection.ExpireTimeInMilliseconds:
-                    _reader.ReadBytes(8); // expireTimeInMilliseconds in Unix (8-byte unsigned integer)
-                    ReadKeyValue((ValueType)_reader.ReadByte());
+                    var expireTimeInMilliseconds = _reader.ReadInt64(); // Unix (8-byte unsigned integer)
+                    var expireAtInMilliseconds = DateTimeOffset.FromUnixTimeMilliseconds(expireTimeInMilliseconds).DateTime;
+                    ReadKeyValue((ValueType)_reader.ReadByte(), expireAtInMilliseconds);
                     break;
                 case FileSection.ExpireTimeInSeconds:
-                    _reader.ReadBytes(4); // expireTimeInSeconds in Unix (4-byte unsigned integer)
-                    ReadKeyValue((ValueType)_reader.ReadByte());
+                    var expireTimeInSeconds = _reader.ReadInt32(); // Unix (4-byte unsigned integer)
+                    var expireAtInSeconds = DateTimeOffset.FromUnixTimeSeconds(expireTimeInSeconds).DateTime;
+                    ReadKeyValue((ValueType)_reader.ReadByte(), expireAtInSeconds);
                     break;
                 case FileSection.EndOfFile:
                     _reader.ReadBytes(8); // CRC64 checksum
@@ -68,7 +70,7 @@ public class RdbReader : IDisposable
         _reader.ReadBytes(4); //0011
     }
 
-    private void ReadKeyValue(ValueType valueType)
+    private void ReadKeyValue(ValueType valueType, DateTime? expireAt = null)
     {
         string key = _reader!.ReadStringEncoded();
 
@@ -76,7 +78,7 @@ public class RdbReader : IDisposable
         {
             case ValueType.String:
                 var value = _reader!.ReadStringEncoded();
-                _data.Add(key, value);
+                _data.Add(key, new Record(value, expireAt));
                 break;
             default:
                 throw new NotSupportedException($"Value type {valueType} is not supported.");
