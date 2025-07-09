@@ -8,14 +8,23 @@ using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis;
 
-public class Server(Dictionary<string, string> config)
+public class Server
 {
-    public Dictionary<string, string> Config { get; } = config;
-    public string DbFileName => Config.GetValueOrDefault("dbfilename", string.Empty);
-    public string DbDirectory => Config.GetValueOrDefault("dir", string.Empty);
+    public Server(Dictionary<string, string> config)
+    {
+        Config = config;
+        DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);
+        DbDirectory = Config.GetValueOrDefault("dir", string.Empty);
+        _port = int.Parse(Config.GetValueOrDefault("port", "6379"));
+    }
+
+    public Dictionary<string, string> Config { get; }
+    public readonly string DbFileName;
+    public readonly string DbDirectory;
+    private readonly int _port;
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
-    
+
     private readonly Dictionary<string, ICommand> _commands = [];
 
     public void RegisterCommand(string commandName, ICommand command)
@@ -23,10 +32,10 @@ public class Server(Dictionary<string, string> config)
         _commands[commandName] = command;
     }
 
-    public async Task StartAsync(int port = 6379)
+    public async Task StartAsync()
     {
         using var listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-        listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, port));
+        listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, _port));
 
         listenSocket.Listen();
         while (true)

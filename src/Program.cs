@@ -1,7 +1,5 @@
 using codecrafters_redis;
 using codecrafters_redis.Commands;
-using codecrafters_redis.Rdb;
-
 
 var redisServer = new Server(Config());
 
@@ -18,14 +16,17 @@ return;
 
 Dictionary<string, string> Config()
 {
-    const string dirArg = "dir";
-    const string dbFileNameArg = "dbfilename";
+    var supportedArgs = new[] { "dir", "dbfilename", "port" };
+    var config = new Dictionary<string, string>();
 
-    return new Dictionary<string, string>
+    foreach (var arg in supportedArgs)
     {
-        { dirArg, GetArgValue(dirArg) },
-        { dbFileNameArg, GetArgValue(dbFileNameArg) }
-    };
+        var value = GetArgValue(arg);
+        if (!string.IsNullOrWhiteSpace(value))
+            config.Add(arg, value);
+    }
+
+    return config;
 }
 
 string GetArgValue(string arg)
