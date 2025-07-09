@@ -10,6 +10,8 @@ namespace codecrafters_redis;
 public class Server(Dictionary<string, string> config)
 {
     public Dictionary<string, string> Config { get; } = config;
+    public string DbFileName => Config.GetValueOrDefault("dbfilename", string.Empty);
+    public string DbDirectory => Config.GetValueOrDefault("dir", string.Empty);
 
     public readonly Dictionary<string, Record> Db = new();
     private readonly Dictionary<string, ICommand> _commands = [];

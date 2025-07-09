@@ -2,18 +2,15 @@ using codecrafters_redis;
 using codecrafters_redis.Commands;
 using codecrafters_redis.Rdb;
 
-var config = Config();
 
-var redisServer = new Server(config);
-
-var rdbReader = new RdbReader(config["dir"], config["dbfilename"]);
+var redisServer = new Server(Config());
 
 redisServer.RegisterCommand(PingCommand.Name, new PingCommand());
 redisServer.RegisterCommand(EchoCommand.Name, new EchoCommand());
 redisServer.RegisterCommand(GetCommand.Name, new GetCommand(redisServer));
 redisServer.RegisterCommand(SetCommand.Name, new SetCommand(redisServer));
 redisServer.RegisterCommand(ConfigGetCommand.Name, new ConfigGetCommand(redisServer));
-redisServer.RegisterCommand(KeysCommand.Name, new KeysCommand(rdbReader));
+redisServer.RegisterCommand(KeysCommand.Name, new KeysCommand(redisServer));
 
 await redisServer.StartAsync();
 return;

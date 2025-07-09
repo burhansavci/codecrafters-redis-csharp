@@ -6,7 +6,7 @@ using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class KeysCommand(RdbReader reader) : ICommand
+public class KeysCommand(Server server) : ICommand
 {
     public const string Name = "KEYS";
     private const char Wildcard = '*';
@@ -20,8 +20,8 @@ public class KeysCommand(RdbReader reader) : ICommand
         if (args[0] is not BulkString pattern)
             throw new FormatException("Invalid pattern format. Expected bulk string.");
 
+        using var reader = new RdbReader(server.DbDirectory, server.DbFileName);
         var db = reader.Read();
-        reader.Dispose();
 
         var allKeys = db.Keys.ToArray();
 
