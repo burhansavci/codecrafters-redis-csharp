@@ -14,7 +14,8 @@ public class Server(Dictionary<string, string> config)
     public string DbFileName => Config.GetValueOrDefault("dbfilename", string.Empty);
     public string DbDirectory => Config.GetValueOrDefault("dir", string.Empty);
 
-    public readonly Dictionary<string, Record> Db = new();
+    public readonly Dictionary<string, Record> InMemoryDb = new();
+    
     private readonly Dictionary<string, ICommand> _commands = [];
 
     public void RegisterCommand(string commandName, ICommand command)
@@ -24,8 +25,6 @@ public class Server(Dictionary<string, string> config)
 
     public async Task StartAsync(int port = 6379)
     {
-        _ = Task.Run(async () => await SweepExpiredKeys());
-
         using var listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
         listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, port));
 
@@ -87,17 +86,5 @@ public class Server(Dictionary<string, string> config)
         var args = array.Items.Skip(skip).ToArray();
 
         return (commandName, args);
-    }
-
-    private Task SweepExpiredKeys()
-    {
-        while (true)
-        {
-            DateTime utcNow = DateTime.UtcNow;
-
-            foreach (var (key, record) in Db)
-                if (record.IsExpired)
-                    Db.Remove(key);
-        }
     }
 }

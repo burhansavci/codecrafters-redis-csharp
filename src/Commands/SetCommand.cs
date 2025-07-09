@@ -41,7 +41,7 @@ public class SetCommand(Server server) : ICommand
             expireTime = TimeSpan.FromMilliseconds(expireTimeMsLong);
         }
 
-        server.Db[key.Data!] = new Record(value.Data!, utcNow + expireTime);
+        server.InMemoryDb[key.Data!] = new Record(value.Data!, utcNow + expireTime);
 
         await connection.SendAsync(Encoding.UTF8.GetBytes(SimpleString.Ok));
     }

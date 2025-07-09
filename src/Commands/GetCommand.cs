@@ -20,7 +20,7 @@ public class GetCommand(Server server) : ICommand
 
         var keyData = key.Data!;
 
-        var value = server.Db.TryGetValue(keyData, out var record) ? new BulkString(record.Value) : GetValueFromRdb(keyData);
+        var value = server.InMemoryDb.TryGetValue(keyData, out var record) && !record.IsExpired ? new BulkString(record.Value) : GetValueFromRdb(keyData);
 
         await connection.SendAsync(Encoding.UTF8.GetBytes(value));
     }
