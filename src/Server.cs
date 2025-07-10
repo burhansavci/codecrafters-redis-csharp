@@ -16,11 +16,13 @@ public class Server
         DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);
         DbDirectory = Config.GetValueOrDefault("dir", string.Empty);
         _port = int.Parse(Config.GetValueOrDefault("port", "6379"));
+        Role = "master";
     }
 
     public Dictionary<string, string> Config { get; }
     public readonly string DbFileName;
     public readonly string DbDirectory;
+    public readonly string Role;
     private readonly int _port;
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
