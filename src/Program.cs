@@ -9,6 +9,7 @@ redisServer.RegisterCommand(GetCommand.Name, new GetCommand(redisServer));
 redisServer.RegisterCommand(SetCommand.Name, new SetCommand(redisServer));
 redisServer.RegisterCommand(ConfigGetCommand.Name, new ConfigGetCommand(redisServer));
 redisServer.RegisterCommand(KeysCommand.Name, new KeysCommand(redisServer));
+redisServer.RegisterCommand(InfoCommand.Name, new InfoCommand(redisServer));
 
 await redisServer.StartAsync();
 return;
