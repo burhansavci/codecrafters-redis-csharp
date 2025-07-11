@@ -6,7 +6,7 @@ using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class KeysCommand(Server server) : ICommand
+public class KeysCommand(Server.Server server) : ICommand
 {
     public const string Name = "KEYS";
     private const char Wildcard = '*';

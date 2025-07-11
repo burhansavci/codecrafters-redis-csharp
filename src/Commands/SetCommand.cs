@@ -5,7 +5,7 @@ using codecrafters_redis.RESP;
 
 namespace codecrafters_redis.Commands;
 
-public class SetCommand(Server server) : ICommand
+public class SetCommand(Server.Server server) : ICommand
 {
     public const string Name = "SET";
 
