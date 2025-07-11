@@ -20,7 +20,9 @@ public class Server
         if (Config.TryGetValue("replicaof", out var replicaOf))
         {
             Role = "slave";
-            Console.WriteLine(replicaOf);
+            var parts = replicaOf.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+            MasterHost = parts[0];
+            MasterPort = parts[1];
         }
         else
         {
@@ -36,6 +38,8 @@ public class Server
     public readonly string Role;
     public readonly string? MasterReplicationId;
     public readonly int? MasterReplicationOffset;
+    public readonly string? MasterHost;
+    public readonly string? MasterPort;
 
     private readonly int _port;
 
@@ -50,6 +54,19 @@ public class Server
 
     public async Task StartAsync()
     {
+        if (Role == "slave")
+        {
+            using var client = new Socket(SocketType.Stream, ProtocolType.Tcp);
+            
+            var hostEntry = await Dns.GetHostEntryAsync(MasterHost!);
+            var ipAddress = hostEntry.AddressList.FirstOrDefault(addr => addr.AddressFamily == AddressFamily.InterNetwork) ?? hostEntry.AddressList[0];
+            
+            await client.ConnectAsync(ipAddress, int.Parse(MasterPort!));
+            
+            var pingCommand = new Array(new BulkString("PING"));
+            await client.SendAsync(Encoding.UTF8.GetBytes(pingCommand));
+        }
+
         using var listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
         listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, _port));
 
