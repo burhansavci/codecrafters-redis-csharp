@@ -57,5 +57,7 @@ public class InfoCommand(Server server) : ICommand
     {
         builder.AppendLine("# Replication");
         builder.AppendLine($"role:{server.Role}");
+        builder.AppendLine($"master_replid:{server.MasterReplicationId}");
+        builder.AppendLine($"master_repl_offset:{server.MasterReplicationOffset}");
     }
 }

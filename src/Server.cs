@@ -16,7 +16,7 @@ public class Server
         DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);
         DbDirectory = Config.GetValueOrDefault("dir", string.Empty);
         _port = int.Parse(Config.GetValueOrDefault("port", "6379"));
-        
+
         if (Config.TryGetValue("replicaof", out var replicaOf))
         {
             Role = "slave";
@@ -25,6 +25,8 @@ public class Server
         else
         {
             Role = "master";
+            MasterReplicationId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+            MasterReplicationOffset = 0;
         }
     }
 
@@ -32,6 +34,9 @@ public class Server
     public readonly string DbFileName;
     public readonly string DbDirectory;
     public readonly string Role;
+    public readonly string? MasterReplicationId;
+    public readonly int? MasterReplicationOffset;
+
     private readonly int _port;
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
