@@ -1,7 +1,7 @@
-using codecrafters_redis;
 using codecrafters_redis.Commands;
+using codecrafters_redis.Server;
 
-var redisServer = new Server(Config());
+var redisServer = new Server(GetConfig());
 
 redisServer.RegisterCommand(PingCommand.Name, new PingCommand());
 redisServer.RegisterCommand(EchoCommand.Name, new EchoCommand());
@@ -10,12 +10,13 @@ redisServer.RegisterCommand(SetCommand.Name, new SetCommand(redisServer));
 redisServer.RegisterCommand(ConfigGetCommand.Name, new ConfigGetCommand(redisServer));
 redisServer.RegisterCommand(KeysCommand.Name, new KeysCommand(redisServer));
 redisServer.RegisterCommand(InfoCommand.Name, new InfoCommand(redisServer));
+redisServer.RegisterCommand(ReplConfCommand.Name, new ReplConfCommand());
 
-await redisServer.StartAsync();
+await redisServer.Start();
 return;
 
 
-Dictionary<string, string> Config()
+Dictionary<string, string> GetConfig()
 {
     var supportedArgs = new[] { "dir", "dbfilename", "port" , "replicaof"};
     var config = new Dictionary<string, string>();

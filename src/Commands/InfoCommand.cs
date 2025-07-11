@@ -4,7 +4,7 @@ using codecrafters_redis.RESP;
 
 namespace codecrafters_redis.Commands;
 
-public class InfoCommand(Server server) : ICommand
+public class InfoCommand(Server.Server server) : ICommand
 {
     public const string Name = "INFO";
     private const string AllSection = "all";

@@ -5,7 +5,7 @@ using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class ConfigGetCommand(Server server) : ICommand
+public class ConfigGetCommand(Server.Server server) : ICommand
 {
     public const string Name = "CONFIG GET";
 

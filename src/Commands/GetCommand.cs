@@ -5,7 +5,7 @@ using codecrafters_redis.RESP;
 
 namespace codecrafters_redis.Commands;
 
-public class GetCommand(Server server) : ICommand
+public class GetCommand(Server.Server server) : ICommand
 {
     public const string Name = "GET";
 

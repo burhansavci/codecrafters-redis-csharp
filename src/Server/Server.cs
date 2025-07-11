@@ -6,31 +6,20 @@ using codecrafters_redis.Rdb;
 using codecrafters_redis.RESP;
 using Array = codecrafters_redis.RESP.Array;
 
-namespace codecrafters_redis;
+namespace codecrafters_redis.Server;
 
 public class Server
 {
-    public Server(Dictionary<string, string> config)
-    {
-        Config = config;
-        DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);
-        DbDirectory = Config.GetValueOrDefault("dir", string.Empty);
-        _port = int.Parse(Config.GetValueOrDefault("port", "6379"));
+    private const string DefaultPort = "6379";
+    private const string DefaultMasterReplicationId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
+    private const int DefaultMasterReplicationOffset = 0;
+    private const string MasterRole = "master";
+    private const string SlaveRole = "slave";
+    private const int BufferSize = 4 * 1024;
 
-        if (Config.TryGetValue("replicaof", out var replicaOf))
-        {
-            Role = "slave";
-            var parts = replicaOf.Split(" ", StringSplitOptions.RemoveEmptyEntries);
-            MasterHost = parts[0];
-            MasterPort = parts[1];
-        }
-        else
-        {
-            Role = "master";
-            MasterReplicationId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
-            MasterReplicationOffset = 0;
-        }
-    }
+    private readonly int _port;
+    private readonly Dictionary<string, ICommand> _commands = [];
+    private readonly ReplicationClient? _replicationClient;
 
     public Dictionary<string, string> Config { get; }
     public readonly string DbFileName;
@@ -38,35 +27,45 @@ public class Server
     public readonly string Role;
     public readonly string? MasterReplicationId;
     public readonly int? MasterReplicationOffset;
-    public readonly string? MasterHost;
-    public readonly string? MasterPort;
-
-    private readonly int _port;
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
 
-    private readonly Dictionary<string, ICommand> _commands = [];
+    public Server(Dictionary<string, string> config)
+    {
+        Config = config;
+        DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);
+        DbDirectory = Config.GetValueOrDefault("dir", string.Empty);
+        _port = int.Parse(Config.GetValueOrDefault("port", DefaultPort));
+
+        if (Config.TryGetValue("replicaof", out var replicaOf))
+        {
+            var (masterHost, masterPort) = ParseReplicaOfConfig(replicaOf);
+            Role = SlaveRole;
+            _replicationClient = new ReplicationClient(_port, masterHost, masterPort);
+        }
+        else
+        {
+            Role = MasterRole;
+            MasterReplicationId = DefaultMasterReplicationId;
+            MasterReplicationOffset = DefaultMasterReplicationOffset;
+        }
+    }
 
     public void RegisterCommand(string commandName, ICommand command)
     {
         _commands[commandName] = command;
     }
 
-    public async Task StartAsync()
+    public async Task Start()
     {
-        if (Role == "slave")
-        {
-            using var client = new Socket(SocketType.Stream, ProtocolType.Tcp);
-            
-            var hostEntry = await Dns.GetHostEntryAsync(MasterHost!);
-            var ipAddress = hostEntry.AddressList.FirstOrDefault(addr => addr.AddressFamily == AddressFamily.InterNetwork) ?? hostEntry.AddressList[0];
-            
-            await client.ConnectAsync(ipAddress, int.Parse(MasterPort!));
-            
-            var pingCommand = new Array(new BulkString("PING"));
-            await client.SendAsync(Encoding.UTF8.GetBytes(pingCommand));
-        }
+        if (Role == SlaveRole && _replicationClient != null)
+            await _replicationClient.Handshake();
 
+        await StartListening();
+    }
+
+    private async Task StartListening()
+    {
         using var listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
         listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, _port));
 
@@ -76,19 +75,18 @@ public class Server
             // Wait for a new connection to arrive
             var connection = await listenSocket.AcceptAsync();
 
-            _ = Task.Run(async () => await HandleConnectionAsync(connection));
+            _ = Task.Run(async () => await HandleConnection(connection));
         }
     }
 
-    private async Task HandleConnectionAsync(Socket connection)
+    private async Task HandleConnection(Socket connection)
     {
-        var buffer = new byte[4 * 1024];
+        var buffer = new byte[BufferSize];
         try
         {
             while (connection.Connected)
             {
                 var read = await connection.ReceiveAsync(buffer);
-
                 if (read <= 0) break;
 
                 var request = Encoding.UTF8.GetString(buffer[..read]);
@@ -126,7 +124,15 @@ public class Server
         }
 
         var args = array.Items.Skip(skip).ToArray();
-
         return (commandName, args);
+    }
+
+    private static (string Host, string Port) ParseReplicaOfConfig(string replicaOf)
+    {
+        var parts = replicaOf.Split(" ", StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2)
+            throw new ArgumentException("Invalid replicaof configuration format");
+
+        return (parts[0], parts[1]);
     }
 }
