@@ -17,7 +17,7 @@ return;
 
 Dictionary<string, string> Config()
 {
-    var supportedArgs = new[] { "dir", "dbfilename", "port" };
+    var supportedArgs = new[] { "dir", "dbfilename", "port" , "replicaof"};
     var config = new Dictionary<string, string>();
 
     foreach (var arg in supportedArgs)
