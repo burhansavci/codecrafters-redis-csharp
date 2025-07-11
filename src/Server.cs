@@ -16,7 +16,16 @@ public class Server
         DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);
         DbDirectory = Config.GetValueOrDefault("dir", string.Empty);
         _port = int.Parse(Config.GetValueOrDefault("port", "6379"));
-        Role = "master";
+        
+        if (Config.TryGetValue("replicaof", out var replicaOf))
+        {
+            Role = "slave";
+            Console.WriteLine(replicaOf);
+        }
+        else
+        {
+            Role = "master";
+        }
     }
 
     public Dictionary<string, string> Config { get; }
