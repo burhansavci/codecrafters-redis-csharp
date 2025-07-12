@@ -1,7 +1,7 @@
 using codecrafters_redis.Commands;
 using codecrafters_redis.Server;
 
-var redisServer = new Server(GetConfig());
+var redisServer = new RedisServer(GetConfig());
 
 redisServer.RegisterCommand(PingCommand.Name, new PingCommand());
 redisServer.RegisterCommand(EchoCommand.Name, new EchoCommand());

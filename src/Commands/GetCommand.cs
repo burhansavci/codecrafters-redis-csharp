@@ -2,10 +2,11 @@ using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.RESP;
+using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public class GetCommand(Server.Server server) : ICommand
+public class GetCommand(RedisServer redisServer) : ICommand
 {
     public const string Name = "GET";
 
@@ -20,14 +21,14 @@ public class GetCommand(Server.Server server) : ICommand
 
         var keyData = key.Data!;
 
-        var value = server.InMemoryDb.TryGetValue(keyData, out var record) && !record.IsExpired ? new BulkString(record.Value) : GetValueFromRdb(keyData);
+        var value = redisServer.InMemoryDb.TryGetValue(keyData, out var record) && !record.IsExpired ? new BulkString(record.Value) : GetValueFromRdb(keyData);
 
         await connection.SendAsync(Encoding.UTF8.GetBytes(value));
     }
     
     private BulkString GetValueFromRdb(string key)
     {
-        using var reader = new RdbReader(server.DbDirectory, server.DbFileName);
+        using var reader = new RdbReader(redisServer.DbDirectory, redisServer.DbFileName);
         var db = reader.Read();
 
         if (!db.TryGetValue(key, out var rdbRecord) || rdbRecord.IsExpired)

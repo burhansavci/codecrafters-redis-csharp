@@ -1,10 +1,11 @@
 using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.RESP;
+using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public class InfoCommand(Server.Server server) : ICommand
+public class InfoCommand(RedisServer redisServer) : ICommand
 {
     public const string Name = "INFO";
     private const string AllSection = "all";
@@ -56,8 +57,8 @@ public class InfoCommand(Server.Server server) : ICommand
     private void AppendReplicationInfo(StringBuilder builder)
     {
         builder.AppendLine("# Replication");
-        builder.AppendLine($"role:{server.Role}");
-        builder.AppendLine($"master_replid:{server.MasterReplicationId}");
-        builder.AppendLine($"master_repl_offset:{server.MasterReplicationOffset}");
+        builder.AppendLine($"role:{redisServer.Role}");
+        builder.AppendLine($"master_replid:{redisServer.MasterReplicationId}");
+        builder.AppendLine($"master_repl_offset:{redisServer.MasterReplicationOffset}");
     }
 }

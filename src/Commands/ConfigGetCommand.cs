@@ -1,11 +1,12 @@
 using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.RESP;
+using codecrafters_redis.Server;
 using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class ConfigGetCommand(Server.Server server) : ICommand
+public class ConfigGetCommand(RedisServer redisServer) : ICommand
 {
     public const string Name = "CONFIG GET";
 
@@ -18,7 +19,7 @@ public class ConfigGetCommand(Server.Server server) : ICommand
         if (args[0] is not BulkString commandName)
             throw new FormatException("Invalid name format. Expected bulk string.");
 
-        if (!server.Config.TryGetValue(commandName.Data!, out var value))
+        if (!redisServer.Config.TryGetValue(commandName.Data!, out var value))
             throw new InvalidOperationException($"Invalid command name: {commandName.Data}");
 
         var array = new Array(commandName, new BulkString(value));
