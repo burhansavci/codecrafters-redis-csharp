@@ -11,7 +11,7 @@ redisServer.RegisterCommand(ConfigGetCommand.Name, new ConfigGetCommand(redisSer
 redisServer.RegisterCommand(KeysCommand.Name, new KeysCommand(redisServer));
 redisServer.RegisterCommand(InfoCommand.Name, new InfoCommand(redisServer));
 redisServer.RegisterCommand(ReplConfCommand.Name, new ReplConfCommand());
-redisServer.RegisterCommand(PsyncCommand.Name, new PsyncCommand());
+redisServer.RegisterCommand(PsyncCommand.Name, new PsyncCommand(redisServer));
 
 await redisServer.Start();
 return;
