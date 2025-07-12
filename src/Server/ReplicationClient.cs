@@ -20,6 +20,7 @@ public class ReplicationClient(int port, string masterHost, string masterPort)
         await SendPing(client);
         await SendReplConfListeningPort(client);
         await SendReplConfCapability(client);
+        await SendPsync(client);
     }
 
     private async Task<IPAddress> ResolveMasterHost()
@@ -67,6 +68,16 @@ public class ReplicationClient(int port, string masterHost, string masterPort)
 
         if (replConfResponse != SimpleString.Ok)
             throw new Exception("Master server is not responding to REPLCONF capa");
+    }
+
+    private static async Task SendPsync(Socket client)
+    {
+        var psyncCommand = new Array(
+            new BulkString("PSYNC"),
+            new BulkString("?"),
+            new BulkString("-1")
+        );
+        await client.SendAsync(Encoding.UTF8.GetBytes(psyncCommand));
     }
 
     private static async Task<string> ReceiveResponse(Socket client)

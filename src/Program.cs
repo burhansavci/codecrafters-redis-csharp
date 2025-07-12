@@ -11,6 +11,7 @@ redisServer.RegisterCommand(ConfigGetCommand.Name, new ConfigGetCommand(redisSer
 redisServer.RegisterCommand(KeysCommand.Name, new KeysCommand(redisServer));
 redisServer.RegisterCommand(InfoCommand.Name, new InfoCommand(redisServer));
 redisServer.RegisterCommand(ReplConfCommand.Name, new ReplConfCommand());
+redisServer.RegisterCommand(PsyncCommand.Name, new PsyncCommand());
 
 await redisServer.Start();
 return;
@@ -18,7 +19,7 @@ return;
 
 Dictionary<string, string> GetConfig()
 {
-    var supportedArgs = new[] { "dir", "dbfilename", "port" , "replicaof"};
+    var supportedArgs = new[] { "dir", "dbfilename", "port", "replicaof" };
     var config = new Dictionary<string, string>();
 
     foreach (var arg in supportedArgs)
