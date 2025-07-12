@@ -8,7 +8,7 @@ using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis.Server;
 
-public class Server
+public class RedisServer
 {
     private const string DefaultPort = "6379";
     private const string DefaultMasterReplicationId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
@@ -30,7 +30,7 @@ public class Server
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
 
-    public Server(Dictionary<string, string> config)
+    public RedisServer(Dictionary<string, string> config)
     {
         Config = config;
         DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);

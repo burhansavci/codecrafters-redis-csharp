@@ -1,10 +1,11 @@
 using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.RESP;
+using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public class PsyncCommand(Server.Server server) : ICommand
+public class PsyncCommand(RedisServer redisServer) : ICommand
 {
     public const string Name = "PSYNC";
 
@@ -20,7 +21,7 @@ public class PsyncCommand(Server.Server server) : ICommand
         if (args.Length > 1 && args[1] is not BulkString replicationOffset)
             throw new FormatException("Invalid replication offset format. Expected bulk string.");
         
-        var response = new SimpleString($"FULLRESYNC {server.MasterReplicationId} {server.MasterReplicationOffset}");
+        var response = new SimpleString($"FULLRESYNC {redisServer.MasterReplicationId} {redisServer.MasterReplicationOffset}");
 
         await connection.SendAsync(Encoding.UTF8.GetBytes(response));
     }
