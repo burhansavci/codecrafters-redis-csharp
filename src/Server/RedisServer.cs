@@ -28,6 +28,7 @@ public class RedisServer
     public readonly string Role;
     public readonly string? MasterReplicationId;
     public readonly int? MasterReplicationOffset;
+    public readonly HashSet<Socket> ConnectedReplications = [];
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
 
@@ -90,9 +91,15 @@ public class RedisServer
                 var read = await connection.ReceiveAsync(buffer);
                 if (read <= 0) break;
 
-                var request = Encoding.UTF8.GetString(buffer[..read]);
+                var requestInBytes = buffer[..read];
+
+                var request = Encoding.UTF8.GetString(requestInBytes);
 
                 var (commandName, args) = ParseCommandAndArgs(request);
+
+                if (IsWriteCommand(commandName))
+                    foreach (var client in ConnectedReplications)
+                        _ = client.SendAsync(requestInBytes);
 
                 if (!_commands.TryGetValue(commandName.ToUpperInvariant(), out var command))
                     throw new ArgumentException($"Command not found: {commandName}");
@@ -136,4 +143,6 @@ public class RedisServer
 
         return (parts[0], parts[1]);
     }
+
+    private static bool IsWriteCommand(string commandName) => commandName == SetCommand.Name;
 }
