@@ -34,9 +34,13 @@ public class PsyncCommand(RedisServer redisServer) : ICommand
 
         var rdbBinaryData = Convert.FromBase64String(RedisServer.DefaultEmptyRdbFileInBase64);
         var emptyRdbFileResponse = $"${rdbBinaryData.Length}\r\n";
+        
+        // Combine the RDB file header and binary data into a single byte array
+        var headerBytes = Encoding.UTF8.GetBytes(emptyRdbFileResponse);
+        var combinedResponse = new byte[headerBytes.Length + rdbBinaryData.Length];
+        System.Array.Copy(headerBytes, 0, combinedResponse, 0, headerBytes.Length);
+        System.Array.Copy(rdbBinaryData, 0, combinedResponse, headerBytes.Length, rdbBinaryData.Length);
 
-        await connection.SendAsync(Encoding.UTF8.GetBytes(emptyRdbFileResponse));
-
-        await connection.SendAsync(rdbBinaryData);
+        await connection.SendAsync(combinedResponse);
     }
 }
