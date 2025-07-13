@@ -101,6 +101,9 @@ public class RedisServer
 
                 var request = Encoding.UTF8.GetString(requestInBytes);
 
+                if (Role == SlaveRole)
+                    request = SkipFullResyncResponse(request);
+
                 var commands = ParseCommandAndArgs(request);
 
                 foreach (var (commandName, args) in commands)
@@ -126,7 +129,7 @@ public class RedisServer
         }
     }
 
-    private static List<(string CommandName, RespObject[] Args)> ParseCommandAndArgs(string request)
+    private List<(string CommandName, RespObject[] Args)> ParseCommandAndArgs(string request)
     {
         var commands = new List<(string CommandName, RespObject[] Args)>();
         var requests = request.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
@@ -141,7 +144,7 @@ public class RedisServer
             var (array, requestPartsLength) = ParseArrayRequest(requests, index);
 
             var (commandName, args) = ExtractCommandAndArgs(array);
-            
+
             commands.Add((commandName, args));
 
             index += requestPartsLength;
@@ -171,7 +174,7 @@ public class RedisServer
         return (array, arrayItemsLength);
     }
 
-    private static (string CommandName, RespObject[] Args) ExtractCommandAndArgs(Array array)
+    private (string CommandName, RespObject[] Args) ExtractCommandAndArgs(Array array)
     {
         if (array.Items.Length == 0)
             throw new ArgumentException("Empty command array");
@@ -180,16 +183,32 @@ public class RedisServer
         var commandName = commandMessage.Data ?? string.Empty;
         var skipCount = 1;
 
-        // Handle CONFIG command special case
-        if (commandName.Equals("CONFIG", StringComparison.OrdinalIgnoreCase) && array.Items.Length > 1)
+        // Handle commands that might have sub-commands
+        if (array.Items.Length > 1)
         {
             var subCommand = ((BulkString)array.Items[1]).Data;
-            commandName = $"{commandName} {subCommand}";
-            skipCount = 2;
+            var compositeCommandName = $"{commandName} {subCommand}";
+
+            if (_commands.ContainsKey(compositeCommandName))
+            {
+                commandName = compositeCommandName;
+                skipCount = 2;
+            }
         }
 
         var args = array.Items.Skip(skipCount).ToArray();
         return (commandName, args);
+    }
+
+    private static string SkipFullResyncResponse(string request)
+    {
+        if (!request.StartsWith("+FULLRESYNC", StringComparison.OrdinalIgnoreCase))
+            return request;
+
+        var commandStartIndex = request.IndexOf(DataType.Array, StringComparison.Ordinal);
+
+        // Skip FullResync response and empty rdb file
+        return request[commandStartIndex..];
     }
 
     private static (string Host, string Port) ParseReplicaOfConfig(string replicaOf)

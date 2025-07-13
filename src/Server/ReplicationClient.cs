@@ -82,14 +82,8 @@ public class ReplicationClient(int port, string masterHost, string masterPort)
         );
         await client.SendAsync(Encoding.UTF8.GetBytes(psyncCommand));
 
-        string psyncResponseRaw = await ReceiveResponse(client);
-
-        SimpleString psyncResponse = SimpleString.Parse(psyncResponseRaw);
-
-        if (!psyncResponse.Data.StartsWith("FULLRESYNC"))
-            throw new Exception($"PSYNC command failed: Expected FULLRESYNC response but received '{psyncResponse.Data}'");
-
-        //Skip the rest of the empty rdb file response
+        // Wait for the full empty rdb file
+        await Task.Delay(100);
     }
 
     private static async Task<string> ReceiveResponse(Socket client)
