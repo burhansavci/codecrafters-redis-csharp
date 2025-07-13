@@ -9,18 +9,21 @@ namespace codecrafters_redis.Server;
 public class ReplicationClient(int port, string masterHost, string masterPort)
 {
     private const int ReplicationBufferSize = 1024;
+    private Socket _masterConnection = null!;
 
-    public async Task Handshake()
+    public async Task<Socket> Handshake()
     {
-        using var client = new Socket(SocketType.Stream, ProtocolType.Tcp);
+        _masterConnection = new Socket(SocketType.Stream, ProtocolType.Tcp);
 
         var ipAddress = await ResolveMasterHost();
-        await client.ConnectAsync(ipAddress, int.Parse(masterPort));
+        await _masterConnection.ConnectAsync(ipAddress, int.Parse(masterPort));
 
-        await SendPing(client);
-        await SendReplConfListeningPort(client);
-        await SendReplConfCapability(client);
-        await SendPsync(client);
+        await SendPing(_masterConnection);
+        await SendReplConfListeningPort(_masterConnection);
+        await SendReplConfCapability(_masterConnection);
+        await SendPsync(_masterConnection);
+
+        return _masterConnection;
     }
 
     private async Task<IPAddress> ResolveMasterHost()
@@ -78,6 +81,15 @@ public class ReplicationClient(int port, string masterHost, string masterPort)
             new BulkString("-1")
         );
         await client.SendAsync(Encoding.UTF8.GetBytes(psyncCommand));
+
+        string psyncResponseRaw = await ReceiveResponse(client);
+
+        SimpleString psyncResponse = SimpleString.Parse(psyncResponseRaw);
+
+        if (!psyncResponse.Data.StartsWith("FULLRESYNC"))
+            throw new Exception($"PSYNC command failed: Expected FULLRESYNC response but received '{psyncResponse.Data}'");
+
+        //Skip the rest of the empty rdb file response
     }
 
     private static async Task<string> ReceiveResponse(Socket client)
