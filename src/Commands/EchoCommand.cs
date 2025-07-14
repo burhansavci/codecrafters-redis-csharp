@@ -1,6 +1,6 @@
 using System.Net.Sockets;
-using System.Text;
 using codecrafters_redis.RESP;
+using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
@@ -17,6 +17,6 @@ public class EchoCommand : ICommand
         if (args[0] is not BulkString message)
             throw new FormatException("Invalid message format. Expected bulk string.");
         
-        await connection.SendAsync(Encoding.UTF8.GetBytes(message));
+        await connection.SendResp(message);
     }
 }

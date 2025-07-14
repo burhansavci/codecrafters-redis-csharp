@@ -29,6 +29,7 @@ public class RedisServer
     public readonly string? MasterReplicationId;
     public readonly int? MasterReplicationOffset;
     public readonly HashSet<Socket> ConnectedReplications = [];
+    public int Offset { get; private set; }
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
 
@@ -101,12 +102,16 @@ public class RedisServer
 
                 var request = Encoding.UTF8.GetString(requestInBytes);
 
-                if (Role == SlaveRole)
+                if (Role == SlaveRole && connection.IsMaster())
+                {
                     request = SkipFullResyncResponse(request);
+                    if (string.IsNullOrWhiteSpace(request))
+                        continue;
+                }
 
                 var commands = ParseCommandAndArgs(request);
 
-                foreach (var (commandName, args) in commands)
+                foreach (var (commandName, args, commandLength) in commands)
                 {
                     if (Role == MasterRole && IsWriteCommand(commandName))
                         foreach (var client in ConnectedReplications)
@@ -116,6 +121,8 @@ public class RedisServer
                         throw new ArgumentException($"Command not found: {commandName}");
 
                     await command.Handle(connection, args);
+
+                    Offset += commandLength;
                 }
             }
         }
@@ -129,9 +136,9 @@ public class RedisServer
         }
     }
 
-    private List<(string CommandName, RespObject[] Args)> ParseCommandAndArgs(string request)
+    private List<(string CommandName, RespObject[] Args, int CommandLength)> ParseCommandAndArgs(string request)
     {
-        var commands = new List<(string CommandName, RespObject[] Args)>();
+        var commands = new List<(string CommandName, RespObject[] Args, int CommandLength)>();
         var requests = request.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
 
         for (var index = 0; index < requests.Length; index++)
@@ -145,7 +152,7 @@ public class RedisServer
 
             var (commandName, args) = ExtractCommandAndArgs(array);
 
-            commands.Add((commandName, args));
+            commands.Add((commandName, args, array.ToString().Length));
 
             index += requestPartsLength;
         }
@@ -200,15 +207,15 @@ public class RedisServer
         return (commandName, args);
     }
 
-    private static string SkipFullResyncResponse(string request)
+    private static string SkipFullResyncResponse(string response)
     {
-        if (!request.StartsWith("+FULLRESYNC", StringComparison.OrdinalIgnoreCase))
-            return request;
+        if (!response.StartsWith("+FULLRESYNC", StringComparison.OrdinalIgnoreCase))
+            return response;
 
-        var commandStartIndex = request.IndexOf(DataType.Array, StringComparison.Ordinal);
+        var commandStartIndex = response.IndexOf(DataType.Array, StringComparison.Ordinal);
 
         // Skip FullResync response and empty rdb file
-        return request[commandStartIndex..];
+        return commandStartIndex == -1 ? string.Empty : response[commandStartIndex..];
     }
 
     private static (string Host, string Port) ParseReplicaOfConfig(string replicaOf)

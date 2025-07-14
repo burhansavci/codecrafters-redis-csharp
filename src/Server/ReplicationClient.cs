@@ -11,12 +11,17 @@ public class ReplicationClient(int port, string masterHost, string masterPort)
     private const int ReplicationBufferSize = 1024;
     private Socket _masterConnection = null!;
 
+    public static IPAddress? MasterIpAddress { get; private set; }
+    public static int? MasterPort { get; private set; }
+
     public async Task<Socket> Handshake()
     {
         _masterConnection = new Socket(SocketType.Stream, ProtocolType.Tcp);
 
-        var ipAddress = await ResolveMasterHost();
-        await _masterConnection.ConnectAsync(ipAddress, int.Parse(masterPort));
+        MasterIpAddress = await ResolveMasterHost();
+        MasterPort = int.Parse(masterPort);
+
+        await _masterConnection.ConnectAsync(MasterIpAddress, MasterPort.Value);
 
         await SendPing(_masterConnection);
         await SendReplConfListeningPort(_masterConnection);
@@ -81,9 +86,6 @@ public class ReplicationClient(int port, string masterHost, string masterPort)
             new BulkString("-1")
         );
         await client.SendAsync(Encoding.UTF8.GetBytes(psyncCommand));
-
-        // Wait for the full empty rdb file
-        await Task.Delay(100);
     }
 
     private static async Task<string> ReceiveResponse(Socket client)

@@ -1,11 +1,12 @@
 using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.RESP;
+using codecrafters_redis.Server;
 using Array = codecrafters_redis.RESP.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class ReplConfGetAckCommand : ICommand
+public class ReplConfGetAckCommand(RedisServer server) : ICommand
 {
     public const string Name = "REPLCONF GETACK";
     private const char Wildcard = '*';
@@ -22,7 +23,7 @@ public class ReplConfGetAckCommand : ICommand
         var array = new Array(
             new BulkString("REPLCONF"),
             new BulkString("ACK"),
-            new BulkString("0")
+            new BulkString(server.Offset.ToString())
         );
 
         await connection.SendAsync(Encoding.UTF8.GetBytes(array));

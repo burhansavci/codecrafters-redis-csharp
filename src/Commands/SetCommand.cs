@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Text;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.RESP;
 using codecrafters_redis.Server;
@@ -44,6 +43,6 @@ public class SetCommand(RedisServer redisServer) : ICommand
 
         redisServer.InMemoryDb[key.Data!] = new Record(value.Data!, utcNow + expireTime);
 
-        await connection.SendAsync(Encoding.UTF8.GetBytes(SimpleString.Ok));
+        await connection.SendResp(SimpleString.Ok);
     }
 }

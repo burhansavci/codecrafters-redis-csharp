@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Text;
 using codecrafters_redis.RESP;
 using codecrafters_redis.Server;
 using Array = codecrafters_redis.RESP.Array;
@@ -24,6 +23,6 @@ public class ConfigGetCommand(RedisServer redisServer) : ICommand
 
         var array = new Array(commandName, new BulkString(value));
 
-        await connection.SendAsync(Encoding.UTF8.GetBytes(array));
+        await connection.SendResp(array);
     }
 }
