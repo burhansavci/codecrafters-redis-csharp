@@ -1,4 +1,4 @@
-namespace codecrafters_redis.Resp;
+namespace codecrafters_redis.Resps;
 
 public record BulkString(string? Data) : RespObject(DataType.BulkString)
 {

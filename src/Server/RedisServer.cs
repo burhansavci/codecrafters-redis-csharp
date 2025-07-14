@@ -3,8 +3,8 @@ using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.Commands;
 using codecrafters_redis.Rdb;
-using codecrafters_redis.Resp;
-using Array = codecrafters_redis.Resp.Array;
+using codecrafters_redis.Resps;
+using Array = codecrafters_redis.Resps.Array;
 
 namespace codecrafters_redis.Server;
 

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using codecrafters_redis.Resp;
+using codecrafters_redis.Resps;
 
 namespace codecrafters_redis.Server;
 
