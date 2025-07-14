@@ -1,7 +1,7 @@
 using System.Net.Sockets;
-using codecrafters_redis.RESP;
+using codecrafters_redis.Resp;
 using codecrafters_redis.Server;
-using Array = codecrafters_redis.RESP.Array;
+using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Commands;
 
