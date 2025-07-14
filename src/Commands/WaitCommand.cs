@@ -4,7 +4,7 @@ using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public class WaitCommand : ICommand
+public class WaitCommand(RedisServer server) : ICommand
 {
     public const string Name = "WAIT";
 
@@ -14,6 +14,6 @@ public class WaitCommand : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 2);
 
-        await connection.SendResp(new Integer(0));
+        await connection.SendResp(new Integer(server.ConnectedReplications.Count));
     }
 }
