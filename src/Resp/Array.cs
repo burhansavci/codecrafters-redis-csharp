@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace codecrafters_redis.Resps;
+namespace codecrafters_redis.Resp;
 
 public record Array(params RespObject[] Items) : RespObject(DataType.Array)
 {

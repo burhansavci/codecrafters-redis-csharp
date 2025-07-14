@@ -1,4 +1,4 @@
-namespace codecrafters_redis.Resps;
+namespace codecrafters_redis.Resp;
 
 public record RespObject(char FirstByte)
 {
