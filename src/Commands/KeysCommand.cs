@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Text;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.RESP;
 using codecrafters_redis.Server;
@@ -30,7 +29,7 @@ public class KeysCommand(RedisServer redisServer) : ICommand
 
         var array = new Array(matchingKeys);
 
-        await connection.SendAsync(Encoding.UTF8.GetBytes(array));
+        await connection.SendResp(array);
     }
 
     private static bool MatchesPattern(string key, string pattern)

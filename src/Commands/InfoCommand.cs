@@ -17,7 +17,7 @@ public class InfoCommand(RedisServer redisServer) : ICommand
         var section = GetRequestedSection(args);
         var infoResponse = GenerateInfoResponse(section);
 
-        await connection.SendAsync(Encoding.UTF8.GetBytes(infoResponse));
+        await connection.SendResp(infoResponse);
     }
 
     private static string GetRequestedSection(RespObject[] args)

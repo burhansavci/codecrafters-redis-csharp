@@ -1,13 +1,13 @@
 using System.Net.Sockets;
-using System.Text;
 using codecrafters_redis.RESP;
+using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
 public class PingCommand : ICommand
 {
     public const string Name = "PING";
-    private static readonly string Pong = new SimpleString("PONG");
+    private static readonly SimpleString Pong = new("PONG");
 
-    public async Task Handle(Socket connection, RespObject[] args) => await connection.SendAsync(Encoding.UTF8.GetBytes(Pong));
+    public async Task Handle(Socket connection, RespObject[] args) => await connection.SendResp(Pong);
 }

@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Text;
 using codecrafters_redis.RESP;
 using codecrafters_redis.Server;
 
@@ -13,6 +12,6 @@ public class ReplConfCommand(RedisServer server) : ICommand
     {
         server.ConnectedReplications.Add(connection);
         
-        await connection.SendAsync(Encoding.UTF8.GetBytes(SimpleString.Ok));
+       await connection.SendResp(SimpleString.Ok);
     }
 }
