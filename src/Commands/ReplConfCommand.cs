@@ -10,8 +10,12 @@ public class ReplConfCommand(RedisServer server) : ICommand
 
     public async Task Handle(Socket connection, RespObject[] args)
     {
-        server.ConnectedReplications.Add(connection);
-        
-       await connection.SendResp(SimpleString.Ok);
+        ArgumentNullException.ThrowIfNull(args);
+        ArgumentOutOfRangeException.ThrowIfZero(args.Length);
+        ArgumentOutOfRangeException.ThrowIfNotEqual(args.Length, 2);
+
+        server.AddReplica(connection);
+
+        await connection.SendResp(SimpleString.Ok);
     }
 }

@@ -1,9 +1,11 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.Commands;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Resp;
+using codecrafters_redis.Server.Replications;
 using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Server;
@@ -22,13 +24,16 @@ public class RedisServer
     private readonly Dictionary<string, ICommand> _commands = [];
     private readonly ReplicationClient? _replicationClient;
 
+    private readonly ConcurrentDictionary<Socket, ReplicaState> _replicaStates = [];
+    private readonly ConcurrentDictionary<int, WaitCommand> _activeWaitCommands = new();
+    private readonly Lock _waitCommandsLock = new();
+
     public Dictionary<string, string> Config { get; }
     public readonly string DbFileName;
     public readonly string DbDirectory;
     public readonly string Role;
     public readonly string? MasterReplicationId;
     public readonly int? MasterReplicationOffset;
-    public readonly HashSet<Socket> ConnectedReplications = [];
     public int Offset { get; private set; }
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
@@ -58,6 +63,77 @@ public class RedisServer
     {
         _commands[commandName] = command;
     }
+    
+    public void RequestReplicaAcknowledgments()
+    {
+        if (Role != MasterRole) return;
+
+        var getAckCommand = new Array(
+            new BulkString("REPLCONF"),
+            new BulkString("GETACK"),
+            new BulkString("*")
+        );
+
+        foreach (var (socket, _) in _replicaStates)
+        {
+            try
+            {
+                _ = socket.SendAsync(Encoding.UTF8.GetBytes(getAckCommand));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to send GETACK to replica: {ex.Message}");
+                RemoveReplica(socket);
+            }
+        }
+    }
+
+    public bool HasPendingWriteOperations() => _replicaStates.Values.Any(state => !state.IsAcknowledged && state.ExpectedOffset > state.AcknowledgedOffset);
+
+    public int GetAcknowledgedReplicaCount() => _replicaStates.Values.Count(state => state.IsAcknowledged || state.AcknowledgedOffset >= state.ExpectedOffset);
+
+    public void RegisterWaitCommand(WaitCommand waitCommand) => _activeWaitCommands.TryAdd(waitCommand.GetHashCode(), waitCommand);
+
+    public void UnregisterWaitCommand(WaitCommand waitCommand) => _activeWaitCommands.TryRemove(waitCommand.GetHashCode(), out _);
+
+    /// <summary>
+    /// Handles replica acknowledgment and notifies waiting WAIT commands
+    /// </summary>
+    public void HandleReplicaAcknowledgment(Socket replicaSocket, int acknowledgedOffset)
+    {
+        if (_replicaStates.TryGetValue(replicaSocket, out var replicaState))
+        {
+            replicaState.AcknowledgedOffset = acknowledgedOffset;
+            replicaState.IsAcknowledged = acknowledgedOffset >= replicaState.ExpectedOffset;
+        }
+
+        // Notifies all active WAIT commands about acknowledgment updates
+        var currentAcknowledgedCount = GetAcknowledgedReplicaCount();
+
+        lock (_waitCommandsLock)
+        {
+            foreach (var waitCommand in _activeWaitCommands.Values.Where(w => !w.IsCompleted))
+                waitCommand.NotifyAcknowledgmentUpdate(currentAcknowledgedCount);
+        }
+    }
+
+    public void AddReplica(Socket replicaSocket)
+    {
+        var replicaState = new ReplicaState
+        {
+            Socket = replicaSocket,
+            AcknowledgedOffset = 0,
+            ExpectedOffset = Offset,
+            IsAcknowledged = Offset == 0 // If no writes yet, consider acknowledged
+        };
+
+        _replicaStates.TryAdd(replicaSocket, replicaState);
+    }
+
+    public void RemoveReplica(Socket replicaSocket)
+    {
+        _replicaStates.TryRemove(replicaSocket, out _);
+    }
 
     public async Task Start()
     {
@@ -66,7 +142,6 @@ public class RedisServer
         if (Role == SlaveRole && _replicationClient != null)
         {
             var masterConnection = await _replicationClient.Handshake();
-
             _ = Task.Run(async () => await HandleConnection(masterConnection));
         }
 
@@ -83,7 +158,6 @@ public class RedisServer
         {
             // Wait for a new connection to arrive
             var connection = await listenSocket.AcceptAsync();
-
             _ = Task.Run(async () => await HandleConnection(connection));
         }
     }
@@ -98,9 +172,7 @@ public class RedisServer
                 var read = await connection.ReceiveAsync(buffer);
                 if (read <= 0) break;
 
-                var requestInBytes = buffer[..read];
-
-                var request = Encoding.UTF8.GetString(requestInBytes);
+                var request = Encoding.UTF8.GetString(buffer[..read]);
 
                 if (Role == SlaveRole && connection.IsMaster())
                 {
@@ -111,18 +183,20 @@ public class RedisServer
 
                 var commands = ParseCommandAndArgs(request);
 
-                foreach (var (commandName, args, commandLength) in commands)
+                foreach (var (commandName, args, array) in commands)
                 {
+                    var singleRequest = array.ToString();
+
                     if (Role == MasterRole && IsWriteCommand(commandName))
-                        foreach (var client in ConnectedReplications)
-                            _ = client.SendAsync(requestInBytes);
+                        BroadcastToReplications(singleRequest);
 
                     if (!_commands.TryGetValue(commandName.ToUpperInvariant(), out var command))
                         throw new ArgumentException($"Command not found: {commandName}");
 
                     await command.Handle(connection, args);
 
-                    Offset += commandLength;
+                    if (Role == SlaveRole && connection.IsMaster())
+                        Offset += singleRequest.Length;
                 }
             }
         }
@@ -132,13 +206,40 @@ public class RedisServer
         }
         finally
         {
+            if (Role == MasterRole)
+                RemoveReplica(connection);
+
             connection.Dispose();
         }
     }
 
-    private List<(string CommandName, RespObject[] Args, int CommandLength)> ParseCommandAndArgs(string request)
+    private void BroadcastToReplications(string request)
     {
-        var commands = new List<(string CommandName, RespObject[] Args, int CommandLength)>();
+        if (Role != MasterRole) return;
+
+        // Update offset before broadcasting
+        Offset += request.Length;
+
+        foreach (var (socket, replicaState) in _replicaStates)
+        {
+            try
+            {
+                _ = socket.SendAsync(Encoding.UTF8.GetBytes(request));
+
+                replicaState.ExpectedOffset = Offset;
+                replicaState.IsAcknowledged = false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to send to replica: {ex.Message}");
+                RemoveReplica(socket);
+            }
+        }
+    }
+
+    private List<(string CommandName, RespObject[] Args, Array Array)> ParseCommandAndArgs(string request)
+    {
+        var commands = new List<(string CommandName, RespObject[] Args, Array Array)>();
         var requests = request.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
 
         for (var index = 0; index < requests.Length; index++)
@@ -148,19 +249,17 @@ public class RedisServer
             if (!requestPart.StartsWith(DataType.Array))
                 continue;
 
-            var (array, requestPartsLength) = ParseArrayRequest(requests, index);
-
+            var (array, arrayItemsLength) = ParseArrayRequest(requests, index);
             var (commandName, args) = ExtractCommandAndArgs(array);
 
-            commands.Add((commandName, args, array.ToString().Length));
-
-            index += requestPartsLength;
+            commands.Add((commandName, args, array));
+            index += arrayItemsLength;
         }
 
         return commands;
     }
 
-    private static (Array Array, int RequestPartsLength) ParseArrayRequest(string[] requests, int startIndex)
+    private static (Array Array, int ArrayItemsLength) ParseArrayRequest(string[] requests, int startIndex)
     {
         var requestPart = requests[startIndex];
         var arrayItemsLength = int.Parse(requestPart[1].ToString()) * 2; //$<length>\r\n<data>\r\n
