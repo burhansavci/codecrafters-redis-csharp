@@ -20,7 +20,7 @@ public class KeysCommand(RedisServer redisServer) : ICommand
         if (args[0] is not BulkString pattern)
             throw new FormatException("Invalid pattern format. Expected bulk string.");
 
-        using var reader = new RdbReader(redisServer.DbDirectory, redisServer.DbFileName);
+        using var reader = new RdbReader(redisServer.Config.Directory, redisServer.Config.DbFileName);
         var db = reader.Read();
 
         var allKeys = db.Keys.ToArray();

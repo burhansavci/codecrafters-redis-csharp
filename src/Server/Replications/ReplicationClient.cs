@@ -6,7 +6,7 @@ using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Server.Replications;
 
-public class ReplicationClient(int port, string masterHost, string masterPort)
+public class ReplicationClient(int port, string masterHost, int masterPort)
 {
     private const int ReplicationBufferSize = 1024;
     private Socket _masterConnection = null!;
@@ -19,7 +19,7 @@ public class ReplicationClient(int port, string masterHost, string masterPort)
         _masterConnection = new Socket(SocketType.Stream, ProtocolType.Tcp);
 
         MasterIpAddress = await ResolveMasterHost();
-        MasterPort = int.Parse(masterPort);
+        MasterPort = masterPort;
 
         await _masterConnection.ConnectAsync(MasterIpAddress, MasterPort.Value);
 

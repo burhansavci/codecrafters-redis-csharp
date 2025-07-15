@@ -4,9 +4,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 var host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices((context, services) =>
+    .ConfigureServices((_, services) =>
     {
-        services.AddSingleton(GetConfig());
+        services.AddSingleton(new RedisConfiguration(args));
 
         services.AddSingleton<RedisServer>();
 
@@ -27,27 +27,3 @@ var host = Host.CreateDefaultBuilder(args)
 
 var redisServer = host.Services.GetRequiredService<RedisServer>();
 await redisServer.Start();
-
-return;
-
-Dictionary<string, string> GetConfig()
-{
-    var supportedArgs = new[] { "dir", "dbfilename", "port", "replicaof" };
-    var config = new Dictionary<string, string>();
-
-    foreach (var arg in supportedArgs)
-    {
-        var value = GetArgValue(arg);
-        if (!string.IsNullOrWhiteSpace(value))
-            config.Add(arg, value);
-    }
-
-    return config;
-}
-
-string GetArgValue(string arg)
-{
-    arg = $"--{arg}";
-    var index = Array.IndexOf(args, arg);
-    return index == -1 ? string.Empty : args[index + 1];
-}

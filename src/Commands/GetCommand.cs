@@ -27,7 +27,7 @@ public class GetCommand(RedisServer redisServer) : ICommand
     
     private BulkString GetValueFromRdb(string key)
     {
-        using var reader = new RdbReader(redisServer.DbDirectory, redisServer.DbFileName);
+        using var reader = new RdbReader(redisServer.Config.Directory, redisServer.Config.DbFileName);
         var db = reader.Read();
 
         if (!db.TryGetValue(key, out var rdbRecord) || rdbRecord.IsExpired)

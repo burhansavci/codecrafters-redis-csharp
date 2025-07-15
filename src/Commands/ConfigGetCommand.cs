@@ -5,7 +5,7 @@ using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class ConfigGetCommand(RedisServer redisServer) : ICommand
+public class ConfigGetCommand(RedisConfiguration configuration) : ICommand
 {
     public const string Name = "CONFIG GET";
 
@@ -15,14 +15,18 @@ public class ConfigGetCommand(RedisServer redisServer) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 1);
 
-        if (args[0] is not BulkString commandName)
-            throw new FormatException("Invalid name format. Expected bulk string.");
+        if (args[0] is not BulkString configArg)
+            throw new FormatException("Invalid configName format. Expected bulk string.");
 
-        if (!redisServer.Config.TryGetValue(commandName.Data!, out var value))
-            throw new InvalidOperationException($"Invalid command name: {commandName.Data}");
+        var configName = configArg.Data!;
 
-        var array = new Array(commandName, new BulkString(value));
+        var response = configName.ToLowerInvariant() switch
+        {
+            "dir" => new Array(new BulkString("dir"), new BulkString(configuration.Directory)),
+            "dbfilename" => new Array(new BulkString("dbfilename"), new BulkString(configuration.DbFileName)),
+            _ => throw new ArgumentException($"Unknown configuration parameter: {configName}")
+        };
 
-        await connection.SendResp(array);
+        await connection.SendResp(response);
     }
 }
