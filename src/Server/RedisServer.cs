@@ -6,12 +6,14 @@ using codecrafters_redis.Commands;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Resp;
 using codecrafters_redis.Server.Replications;
+using Microsoft.Extensions.DependencyInjection;
 using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Server;
 
 public class RedisServer
 {
+    private readonly IServiceProvider _serviceProvider;
     private const string DefaultPort = "6379";
     private const string DefaultMasterReplicationId = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb";
     private const int DefaultMasterReplicationOffset = 0;
@@ -21,7 +23,6 @@ public class RedisServer
     private const int BufferSize = 4 * 1024;
 
     private readonly int _port;
-    private readonly Dictionary<string, ICommand> _commands = [];
     private readonly ReplicationClient? _replicationClient;
 
     private readonly ConcurrentDictionary<Socket, ReplicaState> _replicaStates = [];
@@ -38,8 +39,9 @@ public class RedisServer
 
     public readonly Dictionary<string, Record> InMemoryDb = new();
 
-    public RedisServer(Dictionary<string, string> config)
+    public RedisServer(Dictionary<string, string> config, IServiceProvider serviceProvider)
     {
+        _serviceProvider = serviceProvider;
         Config = config;
         DbFileName = Config.GetValueOrDefault("dbfilename", string.Empty);
         DbDirectory = Config.GetValueOrDefault("dir", string.Empty);
@@ -59,11 +61,6 @@ public class RedisServer
         }
     }
 
-    public void RegisterCommand(string commandName, ICommand command)
-    {
-        _commands[commandName] = command;
-    }
-    
     public void RequestReplicaAcknowledgments()
     {
         if (Role != MasterRole) return;
@@ -190,8 +187,7 @@ public class RedisServer
                     if (Role == MasterRole && IsWriteCommand(commandName))
                         BroadcastToReplications(singleRequest);
 
-                    if (!_commands.TryGetValue(commandName.ToUpperInvariant(), out var command))
-                        throw new ArgumentException($"Command not found: {commandName}");
+                    var command = _serviceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
 
                     await command.Handle(connection, args);
 
@@ -295,7 +291,7 @@ public class RedisServer
             var subCommand = ((BulkString)array.Items[1]).Data;
             var compositeCommandName = $"{commandName} {subCommand}";
 
-            if (_commands.ContainsKey(compositeCommandName))
+            if (_serviceProvider.GetKeyedService<ICommand>(compositeCommandName) != null)
             {
                 commandName = compositeCommandName;
                 skipCount = 2;

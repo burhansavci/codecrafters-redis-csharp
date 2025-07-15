@@ -1,24 +1,34 @@
 using codecrafters_redis.Commands;
 using codecrafters_redis.Server;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
-var redisServer = new RedisServer(GetConfig());
+var host = Host.CreateDefaultBuilder(args)
+    .ConfigureServices((context, services) =>
+    {
+        services.AddSingleton(GetConfig());
 
-redisServer.RegisterCommand(PingCommand.Name, new PingCommand());
-redisServer.RegisterCommand(EchoCommand.Name, new EchoCommand());
-redisServer.RegisterCommand(GetCommand.Name, new GetCommand(redisServer));
-redisServer.RegisterCommand(SetCommand.Name, new SetCommand(redisServer));
-redisServer.RegisterCommand(ConfigGetCommand.Name, new ConfigGetCommand(redisServer));
-redisServer.RegisterCommand(KeysCommand.Name, new KeysCommand(redisServer));
-redisServer.RegisterCommand(InfoCommand.Name, new InfoCommand(redisServer));
-redisServer.RegisterCommand(ReplConfCommand.Name, new ReplConfCommand(redisServer));
-redisServer.RegisterCommand(PsyncCommand.Name, new PsyncCommand(redisServer));
-redisServer.RegisterCommand(ReplConfGetAckCommand.Name, new ReplConfGetAckCommand(redisServer));
-redisServer.RegisterCommand(ReplConfAckCommand.Name, new ReplConfAckCommand(redisServer));
-redisServer.RegisterCommand(WaitCommand.Name, new WaitCommand(redisServer));
+        services.AddSingleton<RedisServer>();
 
+        services.AddKeyedScoped<ICommand, PingCommand>(PingCommand.Name);
+        services.AddKeyedScoped<ICommand, EchoCommand>(EchoCommand.Name);
+        services.AddKeyedScoped<ICommand, GetCommand>(GetCommand.Name);
+        services.AddKeyedScoped<ICommand, SetCommand>(SetCommand.Name);
+        services.AddKeyedScoped<ICommand, ConfigGetCommand>(ConfigGetCommand.Name);
+        services.AddKeyedScoped<ICommand, KeysCommand>(KeysCommand.Name);
+        services.AddKeyedScoped<ICommand, InfoCommand>(InfoCommand.Name);
+        services.AddKeyedScoped<ICommand, ReplConfCommand>(ReplConfCommand.Name);
+        services.AddKeyedScoped<ICommand, PsyncCommand>(PsyncCommand.Name);
+        services.AddKeyedScoped<ICommand, ReplConfGetAckCommand>(ReplConfGetAckCommand.Name);
+        services.AddKeyedScoped<ICommand, ReplConfAckCommand>(ReplConfAckCommand.Name);
+        services.AddKeyedScoped<ICommand, WaitCommand>(WaitCommand.Name);
+    })
+    .Build();
+
+var redisServer = host.Services.GetRequiredService<RedisServer>();
 await redisServer.Start();
-return;
 
+return;
 
 Dictionary<string, string> GetConfig()
 {
