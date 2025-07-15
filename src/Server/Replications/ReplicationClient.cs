@@ -4,7 +4,7 @@ using System.Text;
 using codecrafters_redis.Resp;
 using Array = codecrafters_redis.Resp.Array;
 
-namespace codecrafters_redis.Server;
+namespace codecrafters_redis.Server.Replications;
 
 public class ReplicationClient(int port, string masterHost, string masterPort)
 {
