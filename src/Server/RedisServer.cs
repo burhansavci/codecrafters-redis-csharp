@@ -172,6 +172,7 @@ public class RedisServer
 
                 var commands = ParseCommandAndArgs(request);
 
+                using var scope = _serviceProvider.CreateScope();
                 foreach (var (commandName, args, array) in commands)
                 {
                     var singleRequest = array.ToString();
@@ -179,7 +180,7 @@ public class RedisServer
                     if (Role == MasterRole && IsWriteCommand(commandName))
                         BroadcastToReplications(singleRequest);
 
-                    var command = _serviceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
+                    var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
 
                     await command.Handle(connection, args);
 

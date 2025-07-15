@@ -8,9 +8,9 @@ public class WaitCommand(RedisServer server) : ICommand
 {
     public const string Name = "WAIT";
 
-    private TaskCompletionSource<int>? _completionSource;
+    private readonly TaskCompletionSource<int> _completionSource = new();
     private int _targetReplicaCount;
-    
+
     public bool IsCompleted => _completionSource?.Task.IsCompleted ?? true;
 
     public async Task Handle(Socket connection, RespObject[] args)
@@ -23,7 +23,6 @@ public class WaitCommand(RedisServer server) : ICommand
 
         if (args[1] is not BulkString timeoutArg)
             throw new FormatException("Invalid timeout format. Expected bulk string.");
-
 
         _targetReplicaCount = int.Parse(numReplicationsArg.Data!);
 
@@ -38,9 +37,7 @@ public class WaitCommand(RedisServer server) : ICommand
             server.RequestReplicaAcknowledgments();
 
         // Set up timeout
-        _completionSource = new TaskCompletionSource<int>();
-        var timeoutMs = int.Parse(timeoutArg.Data!);
-        var cancellationTokenSource = new CancellationTokenSource(timeoutMs);
+        var cancellationTokenSource = new CancellationTokenSource(int.Parse(timeoutArg.Data!));
         cancellationTokenSource.Token.Register(() =>
         {
             if (!_completionSource.Task.IsCompleted)
@@ -69,6 +66,6 @@ public class WaitCommand(RedisServer server) : ICommand
     public void NotifyAcknowledgmentUpdate(int currentAcknowledgedCount)
     {
         if (currentAcknowledgedCount >= _targetReplicaCount && !IsCompleted)
-            _completionSource?.TrySetResult(currentAcknowledgedCount);
+            _completionSource.TrySetResult(currentAcknowledgedCount);
     }
 }
