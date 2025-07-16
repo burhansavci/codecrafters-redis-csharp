@@ -22,6 +22,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, ReplConfGetAckCommand>(ReplConfGetAckCommand.Name);
         services.AddKeyedScoped<ICommand, ReplConfAckCommand>(ReplConfAckCommand.Name);
         services.AddKeyedScoped<ICommand, WaitCommand>(WaitCommand.Name);
+        services.AddKeyedScoped<ICommand, TypeCommand>(TypeCommand.Name);
     })
     .Build();
 
