@@ -5,6 +5,7 @@ using System.Text;
 using codecrafters_redis.Commands;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Resp;
+using codecrafters_redis.Resp.Parsing;
 using codecrafters_redis.Server.Replications;
 using Microsoft.Extensions.DependencyInjection;
 using Array = codecrafters_redis.Resp.Array;
@@ -22,6 +23,7 @@ public class RedisServer
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ReplicationClient? _replicationClient;
+    private readonly RespCommandParser _commandParser;
 
     private readonly ConcurrentDictionary<Socket, ReplicaState> _replicaStates = [];
     private readonly ConcurrentDictionary<int, WaitCommand> _activeWaitCommands = new();
@@ -38,6 +40,7 @@ public class RedisServer
     public RedisServer(RedisConfiguration config, IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
+        _commandParser = new RespCommandParser(serviceProvider);
         Config = config;
 
         if (Config.IsReplica)
@@ -170,12 +173,12 @@ public class RedisServer
                         continue;
                 }
 
-                var commands = ParseCommandAndArgs(request);
+                var commands = _commandParser.GetRespCommands(request);
 
                 using var scope = _serviceProvider.CreateScope();
-                foreach (var (commandName, args, array) in commands)
+                foreach (var (commandName, args, requestArray) in commands)
                 {
-                    var singleRequest = array.ToString();
+                    var singleRequest = requestArray.ToString();
 
                     if (Role == MasterRole && IsWriteCommand(commandName))
                         BroadcastToReplications(singleRequest);
@@ -224,75 +227,6 @@ public class RedisServer
                 RemoveReplica(socket);
             }
         }
-    }
-
-    private List<(string CommandName, RespObject[] Args, Array Array)> ParseCommandAndArgs(string request)
-    {
-        var commands = new List<(string CommandName, RespObject[] Args, Array Array)>();
-        var requests = request.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
-
-        for (var index = 0; index < requests.Length; index++)
-        {
-            var requestPart = requests[index];
-
-            if (!requestPart.StartsWith(DataType.Array))
-                continue;
-
-            var (array, arrayItemsLength) = ParseArrayRequest(requests, index);
-            var (commandName, args) = ExtractCommandAndArgs(array);
-
-            commands.Add((commandName, args, array));
-            index += arrayItemsLength;
-        }
-
-        return commands;
-    }
-
-    private static (Array Array, int ArrayItemsLength) ParseArrayRequest(string[] requests, int startIndex)
-    {
-        var requestPart = requests[startIndex];
-        var arrayItemsLength = int.Parse(requestPart[1].ToString()) * 2; //$<length>\r\n<data>\r\n
-
-        var request = new StringBuilder();
-        request.Append(requestPart);
-        request.Append(RespObject.CRLF);
-
-        var endIndex = startIndex + 1 + arrayItemsLength;
-        if (endIndex > requests.Length)
-            throw new IndexOutOfRangeException($"{endIndex} is out of range. Request length: {requests.Length}");
-
-        var arrayItems = requests[(startIndex + 1)..endIndex];
-        request.Append(string.Join(RespObject.CRLF, arrayItems));
-        request.Append(RespObject.CRLF);
-
-        var array = Array.Parse(request.ToString());
-        return (array, arrayItemsLength);
-    }
-
-    private (string CommandName, RespObject[] Args) ExtractCommandAndArgs(Array array)
-    {
-        if (array.Items.Length == 0)
-            throw new ArgumentException("Empty command array");
-
-        var commandMessage = (BulkString)array.Items[0];
-        var commandName = commandMessage.Data ?? string.Empty;
-        var skipCount = 1;
-
-        // Handle commands that might have sub-commands
-        if (array.Items.Length > 1)
-        {
-            var subCommand = ((BulkString)array.Items[1]).Data;
-            var compositeCommandName = $"{commandName} {subCommand}";
-
-            if (_serviceProvider.GetKeyedService<ICommand>(compositeCommandName) != null)
-            {
-                commandName = compositeCommandName;
-                skipCount = 2;
-            }
-        }
-
-        var args = array.Items.Skip(skipCount).ToArray();
-        return (commandName, args);
     }
 
     private static string SkipFullResyncResponse(string response)
