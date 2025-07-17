@@ -16,7 +16,40 @@ public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntry
         Sequence = sequence;
     }
 
-    public static StreamEntryId Create(string id)
+    public static StreamEntryId Create(string id, StreamEntryId? lastIdInStream)
+    {
+        if (id.EndsWith("-*"))
+        {
+            var parts = id.Split('-');
+
+            if (!long.TryParse(parts[0], out var timestamp) || parts.Length != 2)
+                throw new FormatException("Invalid Stream ID format for auto-generation.");
+
+            long sequence;
+            if (lastIdInStream.HasValue)
+            {
+                var lastId = lastIdInStream.Value;
+                
+                if (timestamp > lastId.Timestamp)
+                    sequence = 0;
+                else if (timestamp == lastId.Timestamp)
+                    sequence = lastId.Sequence + 1;
+                else // timestamp < lastId.Timestamp
+                    sequence = 0;
+            }
+            else // Stream is empty
+            {
+                sequence = timestamp == 0 ? 1 : 0;
+            }
+
+            return new StreamEntryId(timestamp, sequence);
+        }
+
+        return Create(id);
+    }
+
+
+    private static StreamEntryId Create(string id)
     {
         if (string.IsNullOrEmpty(id))
             throw new ArgumentException("Stream entry ID cannot be null or empty.", nameof(id));

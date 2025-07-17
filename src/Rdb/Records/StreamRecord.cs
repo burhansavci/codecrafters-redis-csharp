@@ -4,6 +4,8 @@ public record StreamRecord(SortedDictionary<StreamEntryId, Dictionary<string, st
 {
     public new SortedDictionary<StreamEntryId, Dictionary<string, string>> Value => (SortedDictionary<StreamEntryId, Dictionary<string, string>>)base.Value;
 
+    public StreamEntryId? LastStreamEntryId => Value.Count == 0 ? null : Value.Last().Key;
+
     public static StreamRecord Create(StreamEntryId streamEntryId, string streamEntryKey, string streamEntryValue, DateTime? expireAt = null)
     {
         var stream = new SortedDictionary<StreamEntryId, Dictionary<string, string>>();
@@ -16,7 +18,7 @@ public record StreamRecord(SortedDictionary<StreamEntryId, Dictionary<string, st
 
     public bool AppendStreamEntry(StreamEntryId streamEntryId, string streamEntryKey, string streamEntryValue)
     {
-        if (streamEntryId <= Value.Last().Key)
+        if (streamEntryId <= LastStreamEntryId)
             return false;
 
         var streamEntry = new Dictionary<string, string> { { streamEntryKey, streamEntryValue } };

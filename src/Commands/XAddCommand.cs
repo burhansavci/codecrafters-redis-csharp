@@ -29,8 +29,10 @@ public class XAddCommand(Database db) : ICommand
             throw new FormatException("Invalid value format. Expected bulk string.");
 
         var streamKey = streamKeyArg.Data!;
-
-        var streamEntryId = StreamEntryId.Create(idArg.Data!);
+        var id = idArg.Data!;
+        
+        db.TryGetValue<StreamRecord>(streamKey, out var streamRecord);
+        var streamEntryId = StreamEntryId.Create(id, streamRecord?.LastStreamEntryId);
 
         if (streamEntryId == StreamEntryId.Zero)
         {
@@ -39,7 +41,7 @@ public class XAddCommand(Database db) : ICommand
             return;
         }
 
-        if (db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
+        if (streamRecord != null)
         {
             if (!streamRecord.AppendStreamEntry(streamEntryId, keyArg.Data!, valueArg.Data!))
             {
@@ -49,7 +51,9 @@ public class XAddCommand(Database db) : ICommand
             }
         }
         else
+        {
             db.Add(streamKey, StreamRecord.Create(streamEntryId, keyArg.Data!, valueArg.Data!));
+        }
 
         await connection.SendResp(new BulkString(streamEntryId.ToString()));
     }
