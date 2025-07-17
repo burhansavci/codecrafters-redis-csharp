@@ -5,12 +5,12 @@ public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntry
     public long Timestamp { get; }
     public long Sequence { get; }
 
+    public static StreamEntryId Zero => new(0, 0);
+
     public StreamEntryId(long timestamp, long sequence)
     {
         if (timestamp < 0 || sequence < 0)
-        {
             throw new ArgumentException("Timestamp and sequence must be non-negative.");
-        }
 
         Timestamp = timestamp;
         Sequence = sequence;

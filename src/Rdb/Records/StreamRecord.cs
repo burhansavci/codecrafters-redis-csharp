@@ -14,23 +14,15 @@ public record StreamRecord(SortedDictionary<StreamEntryId, Dictionary<string, st
         return new StreamRecord(stream, expireAt);
     }
 
-    public void AddOrUpdateStream(StreamEntryId streamEntryId, string streamEntryKey, string streamEntryValue)
+    public bool AppendStreamEntry(StreamEntryId streamEntryId, string streamEntryKey, string streamEntryValue)
     {
-        if (Value.TryGetValue(streamEntryId, out var streamEntries))
-        {
-            AddOrUpdateStreamEntry(streamEntries, streamEntryKey, streamEntryValue);
-        }
-        else
-        {
-            var streamEntry = new Dictionary<string, string> { { streamEntryKey, streamEntryValue } };
+        if (streamEntryId <= Value.Last().Key)
+            return false;
 
-            Value.Add(streamEntryId, streamEntry);
-        }
-    }
+        var streamEntry = new Dictionary<string, string> { { streamEntryKey, streamEntryValue } };
 
-    private static void AddOrUpdateStreamEntry(Dictionary<string, string> streamEntries, string streamEntryKey, string streamEntryValue)
-    {
-        if (!streamEntries.TryAdd(streamEntryKey, streamEntryValue))
-            streamEntries[streamEntryKey] = streamEntryValue;
+        Value.Add(streamEntryId, streamEntry);
+
+        return true;
     }
 }

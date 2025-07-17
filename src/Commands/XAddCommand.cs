@@ -32,8 +32,22 @@ public class XAddCommand(Database db) : ICommand
 
         var streamEntryId = StreamEntryId.Create(idArg.Data!);
 
+        if (streamEntryId == StreamEntryId.Zero)
+        {
+            SimpleError error = $"ERR The ID specified in XADD must be greater than {StreamEntryId.Zero}";
+            await connection.SendResp(error);
+            return;
+        }
+
         if (db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
-            streamRecord.AddOrUpdateStream(streamEntryId, keyArg.Data!, valueArg.Data!);
+        {
+            if (!streamRecord.AppendStreamEntry(streamEntryId, keyArg.Data!, valueArg.Data!))
+            {
+                SimpleError error = "ERR The ID specified in XADD is equal or smaller than the target stream top item";
+                await connection.SendResp(error);
+                return;
+            }
+        }
         else
             db.Add(streamKey, StreamRecord.Create(streamEntryId, keyArg.Data!, valueArg.Data!));
 

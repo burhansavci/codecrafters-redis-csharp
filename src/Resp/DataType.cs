@@ -9,4 +9,6 @@ public static class DataType
     public const char Array = '*';
 
     public const char Integer = ':';
+    
+    public const char SimpleError = '-';
 }
