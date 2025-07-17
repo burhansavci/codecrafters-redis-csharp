@@ -1,4 +1,5 @@
 using codecrafters_redis.Commands;
+using codecrafters_redis.Rdb;
 using codecrafters_redis.Server;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -7,6 +8,8 @@ var host = Host.CreateDefaultBuilder(args)
     .ConfigureServices((_, services) =>
     {
         services.AddSingleton(new RedisConfiguration(args));
+
+        services.AddSingleton<Database>();
 
         services.AddSingleton<RedisServer>();
 
@@ -23,6 +26,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, ReplConfAckCommand>(ReplConfAckCommand.Name);
         services.AddKeyedScoped<ICommand, WaitCommand>(WaitCommand.Name);
         services.AddKeyedScoped<ICommand, TypeCommand>(TypeCommand.Name);
+        services.AddKeyedScoped<ICommand, XAddCommand>(XAddCommand.Name);
     })
     .Build();
 

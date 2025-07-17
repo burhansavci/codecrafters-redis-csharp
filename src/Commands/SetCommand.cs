@@ -1,11 +1,12 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
+using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
 using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public class SetCommand(RedisServer redisServer) : ICommand
+public class SetCommand(Database db) : ICommand
 {
     public const string Name = "SET";
 
@@ -41,7 +42,7 @@ public class SetCommand(RedisServer redisServer) : ICommand
             expireTime = TimeSpan.FromMilliseconds(expireTimeMsLong);
         }
 
-        redisServer.InMemoryDb[key.Data!] = new Record(value.Data!, utcNow + expireTime);
+        db.Add(key.Data!, new StringRecord(value.Data!, utcNow + expireTime));
 
         await connection.SendResp(SimpleString.Ok);
     }

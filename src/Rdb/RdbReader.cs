@@ -1,3 +1,5 @@
+using codecrafters_redis.Rdb.Records;
+
 namespace codecrafters_redis.Rdb;
 
 public class RdbReader : IDisposable
@@ -78,7 +80,7 @@ public class RdbReader : IDisposable
         {
             case ValueType.String:
                 var value = _reader!.ReadStringEncoded();
-                _data.Add(key, new Record(value, expireAt));
+                _data.Add(key, new StringRecord(value, expireAt));
                 break;
             default:
                 throw new NotSupportedException($"Value type {valueType} is not supported.");

@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using codecrafters_redis.Commands;
-using codecrafters_redis.Rdb;
 using codecrafters_redis.Resp;
 using codecrafters_redis.Resp.Parsing;
 using codecrafters_redis.Server.Replications;
@@ -34,8 +33,6 @@ public class RedisServer
     public readonly string? MasterReplicationId;
     public readonly int? MasterReplicationOffset;
     public int Offset { get; private set; }
-
-    public readonly Dictionary<string, Record> InMemoryDb = new();
 
     public RedisServer(RedisConfiguration config, IServiceProvider serviceProvider)
     {

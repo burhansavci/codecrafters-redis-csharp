@@ -31,7 +31,7 @@ public class RespCommandParser(IServiceProvider serviceProvider)
     private static (Array Array, int ArrayItemsLength) ParseArrayRequest(string[] requests, int startIndex)
     {
         var requestPart = requests[startIndex];
-        var arrayItemsLength = int.Parse(requestPart[1].ToString()) * 2; //$<length>\r\n<data>\r\n
+        var arrayItemsLength = int.Parse(requestPart[1].ToString()) * 2; //2 = $<length>\r\n<data>\r\n
 
         var request = new StringBuilder();
         request.Append(requestPart);
