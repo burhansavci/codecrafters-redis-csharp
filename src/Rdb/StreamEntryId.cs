@@ -29,7 +29,7 @@ public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntry
             if (lastIdInStream.HasValue)
             {
                 var lastId = lastIdInStream.Value;
-                
+
                 if (timestamp > lastId.Timestamp)
                     sequence = 0;
                 else if (timestamp == lastId.Timestamp)
@@ -37,12 +37,21 @@ public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntry
                 else // timestamp < lastId.Timestamp
                     sequence = 0;
             }
-            else // Stream is empty
+            else
             {
                 sequence = timestamp == 0 ? 1 : 0;
             }
 
             return new StreamEntryId(timestamp, sequence);
+        }
+
+        if (id == "*")
+        {
+            var nextTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            return nextTimestamp == lastIdInStream?.Timestamp
+                ? new StreamEntryId(nextTimestamp, lastIdInStream.Value.Sequence + 1)
+                : new StreamEntryId(nextTimestamp, 0);
         }
 
         return Create(id);
