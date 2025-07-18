@@ -45,6 +45,9 @@ public class XRangeCommand(Database db) : ICommand
         if (id == "-")
             return StreamEntryId.Zero;
 
+        if (id == "+")
+            return StreamEntryId.MaxValue;
+
         id = id.Contains('-') ? id : $"{id}-{defaultSequence}";
 
         return StreamEntryId.Create(id);

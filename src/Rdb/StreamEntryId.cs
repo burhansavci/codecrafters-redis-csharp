@@ -8,6 +8,8 @@ public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntry
     public long Sequence { get; }
 
     public static StreamEntryId Zero => new(0, 0);
+    
+    public static StreamEntryId MaxValue => new (long.MaxValue, long.MaxValue);
 
     private StreamEntryId(long timestamp, long sequence)
     {
