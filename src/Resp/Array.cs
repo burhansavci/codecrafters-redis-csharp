@@ -17,11 +17,7 @@ public record Array(params RespObject[] Items) : RespObject(DataType.Array)
 
         var arrayLength = ParseArrayLength(parts[0]);
 
-        if (arrayLength == 0)
-            return new Array();
-
-        var items = ParseArrayItems(parts.Skip(1).ToArray(), arrayLength);
-        return new Array(items);
+        return arrayLength == 0 ? new Array() : new Array(ParseArrayItems(parts.Skip(1).ToArray(), arrayLength));
     }
 
     private static void ValidateFormat(string[] parts)
@@ -87,16 +83,11 @@ public record Array(params RespObject[] Items) : RespObject(DataType.Array)
 
     public override string ToString()
     {
-        var header = $"{FirstByte}{Length}{CRLF}";
-
-        StringBuilder sb = new();
+        var sb = new StringBuilder($"{FirstByte}{Length}{CRLF}");
 
         foreach (var respObject in Items)
-            if (respObject is BulkString bulkString)
-                sb.Append(bulkString);
-            else
-                throw new NotImplementedException();
+            sb.Append(respObject);
 
-        return header + sb;
+        return sb.ToString();
     }
 }

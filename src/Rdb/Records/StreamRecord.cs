@@ -35,4 +35,9 @@ public sealed record StreamRecord : Record
 
         return true;
     }
+
+    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesInRange(StreamEntryId startId, StreamEntryId endId) =>
+        _entries
+            .SkipWhile(kvp => kvp.Key < startId)
+            .TakeWhile(kvp => kvp.Key <= endId);
 }
