@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace codecrafters_redis.Rdb;
 
 public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntryId>
@@ -7,81 +9,80 @@ public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntry
 
     public static StreamEntryId Zero => new(0, 0);
 
-    public StreamEntryId(long timestamp, long sequence)
+    private StreamEntryId(long timestamp, long sequence)
     {
-        if (timestamp < 0 || sequence < 0)
-            throw new ArgumentException("Timestamp and sequence must be non-negative.");
+        ArgumentOutOfRangeException.ThrowIfNegative(timestamp);
+        ArgumentOutOfRangeException.ThrowIfNegative(sequence);
 
         Timestamp = timestamp;
         Sequence = sequence;
     }
 
-    public static StreamEntryId Create(string id, StreamEntryId? lastIdInStream)
+    public static StreamEntryId Create(string id, StreamEntryId? lastIdInStream = null)
     {
-        if (id.EndsWith("-*"))
+        ArgumentException.ThrowIfNullOrEmpty(id);
+
+        return id switch
         {
-            var parts = id.Split('-');
-
-            if (!long.TryParse(parts[0], out var timestamp) || parts.Length != 2)
-                throw new FormatException("Invalid Stream ID format for auto-generation.");
-
-            long sequence;
-            if (lastIdInStream.HasValue)
-            {
-                var lastId = lastIdInStream.Value;
-
-                if (timestamp > lastId.Timestamp)
-                    sequence = 0;
-                else if (timestamp == lastId.Timestamp)
-                    sequence = lastId.Sequence + 1;
-                else // timestamp < lastId.Timestamp
-                    sequence = 0;
-            }
-            else
-            {
-                sequence = timestamp == 0 ? 1 : 0;
-            }
-
-            return new StreamEntryId(timestamp, sequence);
-        }
-
-        if (id == "*")
-        {
-            var nextTimestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-            return nextTimestamp == lastIdInStream?.Timestamp
-                ? new StreamEntryId(nextTimestamp, lastIdInStream.Value.Sequence + 1)
-                : new StreamEntryId(nextTimestamp, 0);
-        }
-
-        return Create(id);
+            "*" => FullyAutoGenerate(lastIdInStream),
+            _ when id.EndsWith("-*") => PartiallyAutoGenerate(id, lastIdInStream),
+            _ => GenerateExplicit(id)
+        };
     }
 
-
-    private static StreamEntryId Create(string id)
+    private static StreamEntryId FullyAutoGenerate(StreamEntryId? lastIdInStream)
     {
-        if (string.IsNullOrEmpty(id))
-            throw new ArgumentException("Stream entry ID cannot be null or empty.", nameof(id));
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        var sequence = timestamp == lastIdInStream?.Timestamp ? lastIdInStream.Value.Sequence + 1 : 0;
 
-        var parts = id.Split('-');
-        if (parts.Length != 2)
-            throw new FormatException("Invalid Stream entry ID format. Expected 'timestamp-sequence'.");
+        return new StreamEntryId(timestamp, sequence);
+    }
 
-        if (!long.TryParse(parts[0], out var timestamp) || !long.TryParse(parts[1], out var sequence))
-            throw new FormatException("Invalid number format in Stream entry ID components.");
+    private static StreamEntryId PartiallyAutoGenerate(string id, StreamEntryId? lastIdInStream)
+    {
+        var timestampStr = id.AsSpan(0, id.Length - 2); // Remove "-*"
+
+        if (!long.TryParse(timestampStr, NumberStyles.None, CultureInfo.InvariantCulture, out var timestamp))
+            throw new FormatException($"Invalid timestamp format in ID: {id}");
+
+        long sequence;
+        if (!lastIdInStream.HasValue)
+            sequence = timestamp == 0 ? 1 : 0;
+        else
+        {
+            var lastId = lastIdInStream.Value;
+
+            sequence = timestamp switch
+            {
+                _ when timestamp > lastId.Timestamp => 0,
+                _ when timestamp == lastId.Timestamp => lastId.Sequence + 1,
+                _ => 0 // timestamp < lastId.Timestamp
+            };
+        }
+
+        return new StreamEntryId(timestamp, sequence);
+    }
+
+    private static StreamEntryId GenerateExplicit(string id)
+    {
+        var separatorIndex = id.IndexOf('-');
+        if (separatorIndex == -1)
+            throw new FormatException($"Invalid stream entry ID format: {id}. Expected 'timestamp-sequence'.");
+
+        var timestampSpan = id.AsSpan(0, separatorIndex);
+        var sequenceSpan = id.AsSpan(separatorIndex + 1);
+
+        if (!long.TryParse(timestampSpan, NumberStyles.None, CultureInfo.InvariantCulture, out var timestamp) ||
+            !long.TryParse(sequenceSpan, NumberStyles.None, CultureInfo.InvariantCulture, out var sequence))
+            throw new FormatException($"Invalid number format in stream entry ID: {id}");
 
         return new StreamEntryId(timestamp, sequence);
     }
 
     public int CompareTo(StreamEntryId other)
     {
-        int timestampComparison = Timestamp.CompareTo(other.Timestamp);
-        if (timestampComparison != 0)
-        {
-            return timestampComparison;
-        }
-
-        return Sequence.CompareTo(other.Sequence);
+        var timestampComparison = Timestamp.CompareTo(other.Timestamp);
+        return timestampComparison != 0 ? timestampComparison : Sequence.CompareTo(other.Sequence);
     }
 
     public override string ToString() => $"{Timestamp}-{Sequence}";

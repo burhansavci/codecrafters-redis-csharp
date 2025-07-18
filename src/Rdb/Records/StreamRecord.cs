@@ -1,29 +1,37 @@
+using System.Collections.Immutable;
+
 namespace codecrafters_redis.Rdb.Records;
 
-public record StreamRecord(SortedDictionary<StreamEntryId, Dictionary<string, string>> Value, DateTime? ExpireAt = null) : Record(Value, ValueType.Stream, ExpireAt)
+public sealed record StreamRecord : Record
 {
-    public new SortedDictionary<StreamEntryId, Dictionary<string, string>> Value => (SortedDictionary<StreamEntryId, Dictionary<string, string>>)base.Value;
+    private readonly SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>> _entries;
+    private StreamEntryId? _lastEntryId;
 
-    public StreamEntryId? LastStreamEntryId => Value.Count == 0 ? null : Value.Last().Key;
-
-    public static StreamRecord Create(StreamEntryId streamEntryId, string streamEntryKey, string streamEntryValue, DateTime? expireAt = null)
+    private StreamRecord(SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>> entries, DateTime? expireAt = null) : base(entries, ValueType.Stream, expireAt)
     {
-        var stream = new SortedDictionary<StreamEntryId, Dictionary<string, string>>();
-        var streamEntry = new Dictionary<string, string> { { streamEntryKey, streamEntryValue } };
-
-        stream.Add(streamEntryId, streamEntry);
-
-        return new StreamRecord(stream, expireAt);
+        _entries = entries;
+        _lastEntryId = entries.Count > 0 ? entries.Keys.Last() : null;
     }
 
-    public bool AppendStreamEntry(StreamEntryId streamEntryId, string streamEntryKey, string streamEntryValue)
+    public StreamEntryId? LastEntryId => _lastEntryId;
+
+    public static StreamRecord Create(StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields, DateTime? expireAt = null)
     {
-        if (streamEntryId <= LastStreamEntryId)
+        var entries = new SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>>();
+        var entryData = fields.ToImmutableDictionary();
+        entries.Add(entryId, entryData);
+
+        return new StreamRecord(entries, expireAt);
+    }
+
+    public bool TryAppendEntry(StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields)
+    {
+        if (_lastEntryId.HasValue && entryId <= _lastEntryId.Value)
             return false;
 
-        var streamEntry = new Dictionary<string, string> { { streamEntryKey, streamEntryValue } };
-
-        Value.Add(streamEntryId, streamEntry);
+        var entryData = fields.ToImmutableDictionary();
+        _entries.Add(entryId, entryData);
+        _lastEntryId = entryId;
 
         return true;
     }
