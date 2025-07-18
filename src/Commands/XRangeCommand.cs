@@ -23,12 +23,9 @@ public class XRangeCommand(Database db) : ICommand
             throw new ArgumentException("Invalid key format. Expected stream key.");
 
         var start = NormalizeStreamId(ExtractBulkStringData(args[1], "start"));
-        var startStreamEntryId = StreamEntryId.Create(start);
-
         var end = NormalizeStreamId(ExtractBulkStringData(args[2], "end"), long.MaxValue);
-        var endStreamEntryId = StreamEntryId.Create(end);
 
-        var entries = streamRecord.GetEntriesInRange(startStreamEntryId, endStreamEntryId);
+        var entries = streamRecord.GetEntriesInRange(start, end);
 
         var entryArrays = entries.Select(CreateEntryArray).ToArray<RespObject>();
 
@@ -43,7 +40,15 @@ public class XRangeCommand(Database db) : ICommand
         return bulkString.Data;
     }
 
-    private static string NormalizeStreamId(string id, long defaultSequence = 0) => id.Contains('-') ? id : $"{id}-{defaultSequence}";
+    private static StreamEntryId NormalizeStreamId(string id, long defaultSequence = 0)
+    {
+        if (id == "-")
+            return StreamEntryId.Zero;
+
+        id = id.Contains('-') ? id : $"{id}-{defaultSequence}";
+
+        return StreamEntryId.Create(id);
+    }
 
     private static Array CreateEntryArray(KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>> entry)
     {
