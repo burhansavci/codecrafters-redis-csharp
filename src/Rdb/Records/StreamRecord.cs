@@ -40,4 +40,7 @@ public sealed record StreamRecord : Record
         _entries
             .SkipWhile(kvp => kvp.Key < startId)
             .TakeWhile(kvp => kvp.Key <= endId);
+    
+    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesAfter(StreamEntryId startId) =>
+        _entries.SkipWhile(kvp => kvp.Key < startId);
 }

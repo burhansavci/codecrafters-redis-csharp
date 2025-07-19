@@ -28,6 +28,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, TypeCommand>(TypeCommand.Name);
         services.AddKeyedScoped<ICommand, XAddCommand>(XAddCommand.Name);
         services.AddKeyedScoped<ICommand, XRangeCommand>(XRangeCommand.Name);
+        services.AddKeyedScoped<ICommand, XReadCommand>(XReadCommand.Name);
     })
     .Build();
 
