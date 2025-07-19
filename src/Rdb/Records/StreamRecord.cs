@@ -7,21 +7,24 @@ public sealed record StreamRecord : Record
     private readonly SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>> _entries;
     private StreamEntryId? _lastEntryId;
 
-    private StreamRecord(SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>> entries, DateTime? expireAt = null) : base(entries, ValueType.Stream, expireAt)
+    private StreamRecord(string streamKey, SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>> entries, DateTime? expireAt = null) : base(entries, ValueType.Stream, expireAt)
     {
+        StreamKey = streamKey;
         _entries = entries;
         _lastEntryId = entries.Count > 0 ? entries.Keys.Last() : null;
     }
 
     public StreamEntryId? LastEntryId => _lastEntryId;
 
-    public static StreamRecord Create(StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields, DateTime? expireAt = null)
+    public string StreamKey { get; }
+
+    public static StreamRecord Create(string streamKey, StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields, DateTime? expireAt = null)
     {
         var entries = new SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>>();
         var entryData = fields.ToImmutableDictionary();
         entries.Add(entryId, entryData);
 
-        return new StreamRecord(entries, expireAt);
+        return new StreamRecord(streamKey, entries, expireAt);
     }
 
     public bool TryAppendEntry(StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields)
@@ -40,7 +43,7 @@ public sealed record StreamRecord : Record
         _entries
             .SkipWhile(kvp => kvp.Key < startId)
             .TakeWhile(kvp => kvp.Key <= endId);
-    
+
     public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesAfter(StreamEntryId startId) =>
         _entries.SkipWhile(kvp => kvp.Key < startId);
 }

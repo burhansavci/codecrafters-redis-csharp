@@ -33,7 +33,7 @@ public sealed class XAddCommand(Database db) : ICommand
             }
             else
             {
-                var newStream = StreamRecord.Create(entryId, fields);
+                var newStream = StreamRecord.Create(streamKey, entryId, fields);
                 db.Add(streamKey, newStream);
             }
 
