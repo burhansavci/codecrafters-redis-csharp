@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.Records;
@@ -13,27 +14,62 @@ public class XReadCommand(Database db) : ICommand
     public const string Name = "XREAD";
 
     private const int MinRequiredArgs = 3;
+    private const string StreamsArg = "STREAMS";
+    private const string BlockArg = "BLOCK";
 
     public async Task Handle(Socket connection, RespObject[] args)
     {
-        var pairs = ValidateAndParseArguments(args);
+        var (blockTimeout, streamKeyIdPairArgs) = ValidateAndParseArguments(args);
 
-        var streamArrays = pairs.Select(CreateStreamArray).ToArray<RespObject>();
+        if (blockTimeout.HasValue)
+            await Task.Delay(blockTimeout.Value);
 
-        await connection.SendResp(new Array(streamArrays));
+        var streamArrays = ParseStreamKeyIdPairs(streamKeyIdPairArgs).Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
+
+        if (streamArrays.Length > 0)
+            await connection.SendResp(new Array(streamArrays));
+        else
+            await connection.SendResp(new BulkString(null));
     }
 
-    private List<KeyValuePair<StreamRecord, StreamEntryId>> ValidateAndParseArguments(RespObject[] args)
+    private static (TimeSpan? BlockTimeout, RespObject[] StreamKeyIdPairArgs) ValidateAndParseArguments(RespObject[] args)
     {
         if (args == null || args.Length < MinRequiredArgs)
-            throw new ArgumentException($"XRANGE requires at least {MinRequiredArgs} arguments");
+            throw new ArgumentException($"XREAD requires at least {MinRequiredArgs} arguments");
 
-        if ((args.Length - 1) % 2 != 0)
-            throw new ArgumentException("XRANGE requires an even number of stream key-id pairs");
+        long? blockTimeoutMs = null;
+        var argIndex = 0;
 
-        ExtractBulkStringData(args[0], "streams");
+        while (argIndex < args.Length)
+        {
+            var arg = ExtractBulkStringData(args[argIndex], $"argument at position {argIndex + 1}");
 
-        return ParseStreamKeyIdPairs(args.Skip(1).ToArray());
+            switch (arg.ToUpperInvariant())
+            {
+                case BlockArg:
+                    if (argIndex + 1 >= args.Length || !TryExtractString(args[argIndex + 1], out var timeoutStr))
+                        throw new ArgumentException($"{BlockArg} requires a timeout value");
+
+                    if (!long.TryParse(timeoutStr, out var timeoutMs))
+                        throw new FormatException($"Invalid timeout format: {timeoutStr}");
+
+                    blockTimeoutMs = timeoutMs;
+                    argIndex += 2;
+                    break;
+
+                case StreamsArg:
+                    var streamKeyIdPairArgs = args.Skip(argIndex + 1).ToArray();
+                    if (streamKeyIdPairArgs.Length == 0 || streamKeyIdPairArgs.Length % 2 != 0)
+                        throw new ArgumentException("STREAMS requires pairs of stream keys and IDs");
+
+                    return (blockTimeoutMs.HasValue ? TimeSpan.FromMilliseconds(blockTimeoutMs.Value) : null, streamKeyIdPairArgs);
+
+                default:
+                    throw new ArgumentException($"Unknown argument: {arg}");
+            }
+        }
+
+        throw new ArgumentException($"XREAD command must contain the '{StreamsArg}' keyword");
     }
 
     private List<KeyValuePair<StreamRecord, StreamEntryId>> ParseStreamKeyIdPairs(RespObject[] streamKeyIdPairArgs)
@@ -56,6 +92,18 @@ public class XReadCommand(Database db) : ICommand
         return pairs;
     }
 
+    private static bool TryExtractString(RespObject arg, [NotNullWhen(true)] out string? value)
+    {
+        if (arg is BulkString { Data: not null } bulkString)
+        {
+            value = bulkString.Data;
+            return true;
+        }
+
+        value = null;
+        return false;
+    }
+
     private static string ExtractBulkStringData(RespObject arg, string parameterName)
     {
         if (arg is not BulkString bulkString || bulkString.Data == null)
@@ -68,7 +116,8 @@ public class XReadCommand(Database db) : ICommand
     {
         var entries = pair.Key.GetEntriesAfter(pair.Value);
         var entryArrays = entries.Select(CreateEntryArray).ToArray<RespObject>();
-        return new Array(new BulkString(pair.Key.StreamKey), new Array(entryArrays));
+
+        return entryArrays.Length == 0 ? Array.Empty : new Array(new BulkString(pair.Key.StreamKey), new Array(entryArrays));
     }
 
     private static Array CreateEntryArray(KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>> entry)

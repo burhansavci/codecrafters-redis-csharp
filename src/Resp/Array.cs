@@ -6,6 +6,8 @@ public record Array(params RespObject[] Items) : RespObject(DataType.Array)
 {
     public int Length => Items.Length;
 
+    public static Array Empty => new();
+
     public static implicit operator string(Array array) => array.ToString();
 
     public static Array Parse(string data)
@@ -83,7 +85,12 @@ public record Array(params RespObject[] Items) : RespObject(DataType.Array)
 
     public override string ToString()
     {
-        var sb = new StringBuilder($"{FirstByte}{Length}{CRLF}");
+        var header = $"{FirstByte}{Length}{CRLF}";
+
+        if (Length == 0)
+            return header;
+
+        var sb = new StringBuilder(header);
 
         foreach (var respObject in Items)
             sb.Append(respObject);

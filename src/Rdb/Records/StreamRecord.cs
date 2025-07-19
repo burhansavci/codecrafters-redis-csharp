@@ -15,7 +15,6 @@ public sealed record StreamRecord : Record
     }
 
     public StreamEntryId? LastEntryId => _lastEntryId;
-
     public string StreamKey { get; }
 
     public static StreamRecord Create(string streamKey, StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields, DateTime? expireAt = null)
@@ -45,5 +44,5 @@ public sealed record StreamRecord : Record
             .TakeWhile(kvp => kvp.Key <= endId);
 
     public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesAfter(StreamEntryId startId) =>
-        _entries.SkipWhile(kvp => kvp.Key < startId);
+        _entries.SkipWhile(kvp => kvp.Key <= startId);
 }
