@@ -8,24 +8,32 @@ public class RespCommandParser(IServiceProvider serviceProvider)
 {
     public List<RespCommand> GetRespCommands(string request)
     {
-        var commands = new List<RespCommand>();
-        var requests = request.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
-
-        for (var index = 0; index < requests.Length; index++)
+        try
         {
-            var requestPart = requests[index];
+            var commands = new List<RespCommand>();
+            var requests = request.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
 
-            if (!requestPart.StartsWith(DataType.Array))
-                continue;
+            for (var index = 0; index < requests.Length; index++)
+            {
+                var requestPart = requests[index];
 
-            var (array, arrayItemsLength) = ParseArrayRequest(requests, index);
-            var (commandName, args) = ExtractCommandAndArgs(array);
+                if (!requestPart.StartsWith(DataType.Array))
+                    continue;
 
-            commands.Add(new RespCommand(commandName, args, array));
-            index += arrayItemsLength;
+                var (array, arrayItemsLength) = ParseArrayRequest(requests, index);
+                var (commandName, args) = ExtractCommandAndArgs(array);
+
+                commands.Add(new RespCommand(commandName, args, array));
+                index += arrayItemsLength;
+            }
+
+            return commands;
         }
-
-        return commands;
+        catch (Exception)
+        {
+            Console.WriteLine(request.Replace("\r", "\\r").Replace("\n", "\\n"));
+            throw;
+        }
     }
 
     private static (Array Array, int ArrayItemsLength) ParseArrayRequest(string[] requests, int startIndex)

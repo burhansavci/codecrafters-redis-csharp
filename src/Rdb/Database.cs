@@ -19,6 +19,8 @@ public class Database
 
     public void Add(string key, Record record) => _records.TryAdd(key, record);
 
+    public void AddOrUpdate(string key, Record record) => _records.AddOrUpdate(key, record, (_, _) => record);
+
     public bool TryGetValue<T>(string key, [MaybeNullWhen(false)] out T record) where T : Record
     {
         if (_records.TryGetValue(key, out var innerRecord) && innerRecord is T { IsExpired: false } typedRecord)
