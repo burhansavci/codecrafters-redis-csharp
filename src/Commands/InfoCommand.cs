@@ -27,10 +27,7 @@ public class InfoCommand(RedisServer redisServer) : ICommand
 
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 1);
 
-        if (args[0] is not BulkString section)
-            throw new FormatException("Invalid section format. Expected bulk string.");
-
-        return section.Data ?? AllSection;
+        return args[0].TryGetString(out var sectionName) ? sectionName : AllSection;
     }
 
     private BulkString GenerateInfoResponse(string section)

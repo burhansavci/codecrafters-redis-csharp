@@ -18,10 +18,7 @@ public class TypeCommand(Database db) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 1);
 
-        if (args[0] is not BulkString keyArg)
-            throw new FormatException("Invalid key format. Expected bulk string.");
-
-        var key = keyArg.Data!;
+        var key = args[0].GetString("key");
 
         var type = db.TryGetValue<Record>(key, out var record) ? record.Type.ToString().ToLowerInvariant() : None;
 

@@ -55,8 +55,8 @@ public sealed class XAddCommand(Database db, RedisServer server) : ICommand
         if ((args.Length - 2) % 2 != 0)
             throw new ArgumentException("XADD requires an even number of field-value pairs");
 
-        var streamKey = ExtractBulkStringData(args[0], "stream key");
-        var id = ExtractBulkStringData(args[1], "entry ID");
+        var streamKey = args[0].GetString("stream key");
+        var id = args[1].GetString("entry ID");
         var fields = ParseFieldValuePairs(args.Skip(2).ToArray());
 
         return new ValueTuple<string, string, List<KeyValuePair<string, string>>>(streamKey, id, fields);
@@ -68,21 +68,13 @@ public sealed class XAddCommand(Database db, RedisServer server) : ICommand
 
         for (int i = 0; i < fieldValueArgs.Length; i += 2)
         {
-            var fieldKey = ExtractBulkStringData(fieldValueArgs[i], $"field key at position {i + 2}");
-            var fieldValue = ExtractBulkStringData(fieldValueArgs[i + 1], $"field value at position {i + 3}");
+            var fieldKey = fieldValueArgs[i].GetString($"field key at position {i + 2}");
+            var fieldValue = fieldValueArgs[i + 1].GetString($"field value at position {i + 3}");
 
             fields.Add(new KeyValuePair<string, string>(fieldKey, fieldValue));
         }
 
         return fields;
-    }
-
-    private static string ExtractBulkStringData(RespObject arg, string parameterName)
-    {
-        if (arg is not BulkString bulkString || bulkString.Data == null)
-            throw new ArgumentException($"Invalid {parameterName} format. Expected bulk string.");
-
-        return bulkString.Data;
     }
 
     private static void ValidateEntryId(StreamEntryId entryId, StreamRecord? existingStream)

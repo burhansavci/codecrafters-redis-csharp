@@ -19,30 +19,25 @@ public class SetCommand(Database db) : ICommand
         var utcNow = DateTime.UtcNow;
         TimeSpan? expireTime = null;
 
-        if (args[0] is not BulkString key)
-            throw new FormatException("Invalid key format. Expected bulk string.");
-
-        if (args[1] is not BulkString value)
-            throw new FormatException("Invalid value format. Expected bulk string.");
+        var key = args[0].GetString("key");
+        var value = args[1].GetString("value");
 
         if (args.Length > 2)
         {
-            if (args[2] is not BulkString expireOption)
-                throw new FormatException("Invalid expire option format. Expected bulk string.");
+            var expireOption = args[2].GetString("expire option");
 
-            if (!string.Equals(expireOption.Data, "PX", StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(expireOption, "PX", StringComparison.OrdinalIgnoreCase))
                 throw new FormatException("Invalid expire option. Expected 'PX'.");
 
-            if (args[3] is not BulkString expireTimeMs)
-                throw new FormatException("Invalid expire time format. Expected bulk string.");
+            var expireTimeMs = args[3].GetString("expire time");
 
-            if (!long.TryParse(expireTimeMs.Data, out var expireTimeMsLong))
+            if (!long.TryParse(expireTimeMs, out var expireTimeMsLong))
                 throw new FormatException("Invalid expire time format. Expected numeric value.");
 
             expireTime = TimeSpan.FromMilliseconds(expireTimeMsLong);
         }
 
-        db.Add(key.Data!, new StringRecord(value.Data!, utcNow + expireTime));
+        db.Add(key!, new StringRecord(value!, utcNow + expireTime));
 
         await connection.SendResp(SimpleString.Ok);
     }

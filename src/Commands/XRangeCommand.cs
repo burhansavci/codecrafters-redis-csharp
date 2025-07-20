@@ -18,26 +18,18 @@ public class XRangeCommand(Database db) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfNotEqual(args.Length, 3);
 
-        var key = ExtractBulkStringData(args[0], "key");
+        var key = args[0].GetString("key");
         if (!db.TryGetValue<StreamRecord>(key, out var streamRecord))
             throw new ArgumentException("Invalid key format. Expected stream key.");
 
-        var start = NormalizeStreamId(ExtractBulkStringData(args[1], "start"));
-        var end = NormalizeStreamId(ExtractBulkStringData(args[2], "end"), long.MaxValue);
+        var start = NormalizeStreamId(args[1].GetString("start"));
+        var end = NormalizeStreamId(args[2].GetString("end"), long.MaxValue);
 
         var entries = streamRecord.GetEntriesInRange(start, end);
 
         var entryArrays = entries.Select(CreateEntryArray).ToArray<RespObject>();
 
         await connection.SendResp(new Array(entryArrays));
-    }
-
-    private static string ExtractBulkStringData(RespObject arg, string parameterName)
-    {
-        if (arg is not BulkString bulkString || bulkString.Data == null)
-            throw new ArgumentException($"Invalid {parameterName} format. Expected bulk string.");
-
-        return bulkString.Data;
     }
 
     private static StreamEntryId NormalizeStreamId(string id, long defaultSequence = 0)

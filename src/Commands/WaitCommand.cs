@@ -18,13 +18,10 @@ public class WaitCommand(RedisServer server) : ICommand
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfNotEqual(args.Length, 2);
 
-        if (args[0] is not BulkString numReplicationsArg)
-            throw new FormatException("Invalid number of replications format. Expected bulk string.");
+        var numReplications = args[0].GetString(" number of replications");
+        var timeout = args[1].GetString("timeout");
 
-        if (args[1] is not BulkString timeoutArg)
-            throw new FormatException("Invalid timeout format. Expected bulk string.");
-
-        _targetReplicaCount = int.Parse(numReplicationsArg.Data!);
+        _targetReplicaCount = int.Parse(numReplications);
 
         var currentAcknowledgedCount = server.GetAcknowledgedReplicaCount();
         if (currentAcknowledgedCount >= _targetReplicaCount)
@@ -37,7 +34,7 @@ public class WaitCommand(RedisServer server) : ICommand
             server.RequestReplicaAcknowledgments();
 
         // Set up timeout
-        var cancellationTokenSource = new CancellationTokenSource(int.Parse(timeoutArg.Data!));
+        var cancellationTokenSource = new CancellationTokenSource(int.Parse(timeout));
         cancellationTokenSource.Token.Register(() =>
         {
             if (!_completionSource.Task.IsCompleted)

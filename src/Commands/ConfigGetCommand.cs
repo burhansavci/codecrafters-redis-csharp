@@ -15,10 +15,7 @@ public class ConfigGetCommand(RedisConfiguration configuration) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 1);
 
-        if (args[0] is not BulkString configArg)
-            throw new FormatException("Invalid configName format. Expected bulk string.");
-
-        var configName = configArg.Data!;
+        var configName = args[0].GetString("configName");
 
         var response = configName.ToLowerInvariant() switch
         {

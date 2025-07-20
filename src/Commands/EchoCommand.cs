@@ -7,7 +7,7 @@ namespace codecrafters_redis.Commands;
 public class EchoCommand : ICommand
 {
     public const string Name = "ECHO";
-    
+
     public async Task Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -16,7 +16,7 @@ public class EchoCommand : ICommand
 
         if (args[0] is not BulkString message)
             throw new FormatException("Invalid message format. Expected bulk string.");
-        
+
         await connection.SendResp(message);
     }
 }

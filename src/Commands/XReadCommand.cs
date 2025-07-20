@@ -75,12 +75,12 @@ public class XReadCommand(Database db, RedisServer server) : ICommand
 
         while (argIndex < args.Length)
         {
-            var arg = ExtractBulkStringData(args[argIndex], $"argument at position {argIndex + 1}");
+            var arg = args[argIndex].GetString($"argument at position {argIndex + 1}");
 
             switch (arg.ToUpperInvariant())
             {
                 case BlockArg:
-                    if (argIndex + 1 >= args.Length || !TryExtractString(args[argIndex + 1], out var timeoutStr))
+                    if (argIndex + 1 >= args.Length || !args[argIndex + 1].TryGetString(out var timeoutStr))
                         throw new ArgumentException($"{BlockArg} requires a timeout value");
 
                     if (!long.TryParse(timeoutStr, out var timeoutMs))
@@ -112,37 +112,17 @@ public class XReadCommand(Database db, RedisServer server) : ICommand
 
         for (int i = 0; i < streamKeysLength; i++)
         {
-            var streamKey = ExtractBulkStringData(streamKeyIdPairArgs[i], $"stream key at position {i + 1}");
+            var streamKey = streamKeyIdPairArgs[i].GetString($"stream key at position {i + 1}");
             if (!db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
                 throw new ArgumentException("Invalid stream key format. Expected stream key.");
 
-            var streamEntryIdString = ExtractBulkStringData(streamKeyIdPairArgs[i + streamKeysLength], $"stream entry ID at position {i + streamKeysLength + 2}");
+            var streamEntryIdString = streamKeyIdPairArgs[i + streamKeysLength].GetString($"stream entry ID at position {i + streamKeysLength + 2}");
             var streamEntryId = streamEntryIdString == SpecialId ? streamRecord.LastEntryId ?? StreamEntryId.Zero : StreamEntryId.Create(streamEntryIdString);
 
             pairs.Add(new KeyValuePair<StreamRecord, StreamEntryId>(streamRecord, streamEntryId));
         }
 
         return pairs;
-    }
-
-    private static bool TryExtractString(RespObject arg, [NotNullWhen(true)] out string? value)
-    {
-        if (arg is BulkString { Data: not null } bulkString)
-        {
-            value = bulkString.Data;
-            return true;
-        }
-
-        value = null;
-        return false;
-    }
-
-    private static string ExtractBulkStringData(RespObject arg, string parameterName)
-    {
-        if (arg is not BulkString bulkString || bulkString.Data == null)
-            throw new ArgumentException($"Invalid {parameterName} format. Expected bulk string.");
-
-        return bulkString.Data;
     }
 
     private static Array CreateStreamArray(KeyValuePair<StreamRecord, StreamEntryId> pair)

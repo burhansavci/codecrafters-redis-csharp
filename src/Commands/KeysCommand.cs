@@ -17,15 +17,14 @@ public class KeysCommand(RedisServer redisServer) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 1);
 
-        if (args[0] is not BulkString pattern)
-            throw new FormatException("Invalid pattern format. Expected bulk string.");
+        var pattern = args[0].GetString("pattern");
 
         using var reader = new RdbReader(redisServer.Config.Directory, redisServer.Config.DbFileName);
         var db = reader.Read();
 
         var allKeys = db.Keys.ToArray();
 
-        var matchingKeys = allKeys.Where(key => MatchesPattern(key, pattern.Data!)).Select(x => new BulkString(x)).ToArray<RespObject>();
+        var matchingKeys = allKeys.Where(key => MatchesPattern(key, pattern)).Select(x => new BulkString(x)).ToArray<RespObject>();
 
         var array = new Array(matchingKeys);
 

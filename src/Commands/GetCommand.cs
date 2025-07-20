@@ -16,12 +16,9 @@ public class GetCommand(Database db) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 1);
 
-        if (args[0] is not BulkString key)
-            throw new FormatException("Invalid key format. Expected bulk string.");
+        var key = args[0].GetString("key");
 
-        var keyData = key.Data!;
-
-        var response = db.TryGetValue<StringRecord>(keyData, out var record) ? new BulkString(record.Value) : new BulkString(null);
+        var response = db.TryGetValue<StringRecord>(key, out var record) ? new BulkString(record.Value) : new BulkString(null);
 
         await connection.SendResp(response);
     }

@@ -16,16 +16,14 @@ public class PsyncCommand(RedisServer redisServer) : ICommand
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 2);
         ArgumentOutOfRangeException.ThrowIfLessThan(args.Length, 1);
 
-        if (args[0] is not BulkString replicationId)
-            throw new FormatException("Invalid replication id format. Expected bulk string.");
+        var replicationId = args[0].GetString("replication id");
 
-        if (replicationId.Data != "?")
+        if (replicationId != "?")
             throw new FormatException("Invalid replication id. Expected '?'");
 
-        if (args[1] is not BulkString replicationOffset)
-            throw new FormatException("Invalid replication offset format. Expected bulk string.");
+        var replicationOffset = args[1].GetString("replication offset");
 
-        if (replicationOffset.Data != "-1")
+        if (replicationOffset != "-1")
             throw new FormatException("Invalid replication offset. Expected '-1'");
 
         var response = new SimpleString($"FULLRESYNC {redisServer.MasterReplicationId} {redisServer.MasterReplicationOffset}");
@@ -34,7 +32,7 @@ public class PsyncCommand(RedisServer redisServer) : ICommand
 
         var rdbBinaryData = Convert.FromBase64String(RedisServer.DefaultEmptyRdbFileInBase64);
         var emptyRdbFileResponse = $"${rdbBinaryData.Length}\r\n";
-        
+
         // Combine the RDB file header and binary data into a single byte array
         var headerBytes = Encoding.UTF8.GetBytes(emptyRdbFileResponse);
         var combinedResponse = new byte[headerBytes.Length + rdbBinaryData.Length];

@@ -14,10 +14,9 @@ public class ReplConfAckCommand(RedisServer server) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 1);
 
-        if (args[0] is not BulkString replicationOffsetBulkString)
-            throw new FormatException("Invalid replication offset format. Expected bulk string.");
+        var replicationOffset = args[0].GetString("replication offset");
 
-        var acknowledgedOffset = int.Parse(replicationOffsetBulkString.Data!);
+        var acknowledgedOffset = int.Parse(replicationOffset);
 
         server.HandleReplicaAcknowledgment(connection, acknowledgedOffset);
 
