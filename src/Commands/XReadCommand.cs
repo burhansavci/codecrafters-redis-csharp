@@ -16,6 +16,7 @@ public class XReadCommand(Database db, RedisServer server) : ICommand
     private const int MinRequiredArgs = 3;
     private const string StreamsArg = "STREAMS";
     private const string BlockArg = "BLOCK";
+    private const string SpecialId = "$";
 
     public async Task Handle(Socket connection, RespObject[] args)
     {
@@ -23,7 +24,7 @@ public class XReadCommand(Database db, RedisServer server) : ICommand
 
         var streamKeyIdPairs = ParseStreamKeyIdPairs(streamKeyIdPairArgs);
         var streamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
-        
+
         if (streamArrays.Length > 0)
         {
             await connection.SendResp(new Array(streamArrays));
@@ -113,10 +114,10 @@ public class XReadCommand(Database db, RedisServer server) : ICommand
         {
             var streamKey = ExtractBulkStringData(streamKeyIdPairArgs[i], $"stream key at position {i + 1}");
             if (!db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
-                throw new ArgumentException($"Invalid stream key format. Expected stream key.");
+                throw new ArgumentException("Invalid stream key format. Expected stream key.");
 
             var streamEntryIdString = ExtractBulkStringData(streamKeyIdPairArgs[i + streamKeysLength], $"stream entry ID at position {i + streamKeysLength + 2}");
-            var streamEntryId = StreamEntryId.Create(streamEntryIdString);
+            var streamEntryId = streamEntryIdString == SpecialId ? streamRecord.LastEntryId ?? StreamEntryId.Zero : StreamEntryId.Create(streamEntryIdString);
 
             pairs.Add(new KeyValuePair<StreamRecord, StreamEntryId>(streamRecord, streamEntryId));
         }
