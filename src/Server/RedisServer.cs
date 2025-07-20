@@ -28,6 +28,8 @@ public class RedisServer
     private readonly ConcurrentDictionary<int, WaitCommand> _activeWaitCommands = new();
     private readonly Lock _waitCommandsLock = new();
 
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<TaskCompletionSource<bool>, byte>> _activeStreamWaitingClients = new();
+
     public RedisConfiguration Config { get; }
     public readonly string Role;
     public readonly string? MasterReplicationId;
@@ -84,6 +86,33 @@ public class RedisServer
     public void RegisterWaitCommand(WaitCommand waitCommand) => _activeWaitCommands.TryAdd(waitCommand.GetHashCode(), waitCommand);
 
     public void UnregisterWaitCommand(WaitCommand waitCommand) => _activeWaitCommands.TryRemove(waitCommand.GetHashCode(), out _);
+
+    public void RegisterStreamWaitingClient(List<string> streamKeys, TaskCompletionSource<bool> tcs)
+    {
+        foreach (var key in streamKeys)
+        {
+            var set = _activeStreamWaitingClients.GetOrAdd(key, _ => new ConcurrentDictionary<TaskCompletionSource<bool>, byte>());
+            set.TryAdd(tcs, 0);
+        }
+    }
+
+    public void UnregisterStreamWaitingClient(List<string> streamKeys, TaskCompletionSource<bool> tcs)
+    {
+        foreach (var key in streamKeys)
+        {
+            if (_activeStreamWaitingClients.TryGetValue(key, out var set))
+                set.TryRemove(tcs, out _);
+        }
+    }
+
+    public void NotifyClientsForStream(string streamKey)
+    {
+        if (_activeStreamWaitingClients.TryRemove(streamKey, out var set))
+        {
+            foreach (var tcs in set.Keys)
+                tcs.TrySetResult(true);
+        }
+    }
 
     /// <summary>
     /// Handles replica acknowledgment and notifies waiting WAIT commands

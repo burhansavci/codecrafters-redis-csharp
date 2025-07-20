@@ -6,7 +6,7 @@ using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public sealed class XAddCommand(Database db) : ICommand
+public sealed class XAddCommand(Database db, RedisServer server) : ICommand
 {
     public const string Name = "XADD";
 
@@ -36,6 +36,8 @@ public sealed class XAddCommand(Database db) : ICommand
                 var newStream = StreamRecord.Create(streamKey, entryId, fields);
                 db.Add(streamKey, newStream);
             }
+
+            server.NotifyClientsForStream(streamKey);
 
             await connection.SendResp(new BulkString(entryId.ToString()));
         }

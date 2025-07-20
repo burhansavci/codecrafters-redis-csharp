@@ -9,7 +9,7 @@ using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class XReadCommand(Database db) : ICommand
+public class XReadCommand(Database db, RedisServer server) : ICommand
 {
     public const string Name = "XREAD";
 
@@ -21,15 +21,47 @@ public class XReadCommand(Database db) : ICommand
     {
         var (blockTimeout, streamKeyIdPairArgs) = ValidateAndParseArguments(args);
 
-        if (blockTimeout.HasValue)
-            await Task.Delay(blockTimeout.Value);
-
-        var streamArrays = ParseStreamKeyIdPairs(streamKeyIdPairArgs).Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
-
+        var streamKeyIdPairs = ParseStreamKeyIdPairs(streamKeyIdPairArgs);
+        var streamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
+        
         if (streamArrays.Length > 0)
+        {
             await connection.SendResp(new Array(streamArrays));
-        else
+            return;
+        }
+
+        if (!blockTimeout.HasValue)
+        {
             await connection.SendResp(new BulkString(null));
+            return;
+        }
+
+        var tcs = new TaskCompletionSource<bool>();
+        var streamKeysToWatch = streamKeyIdPairs.Select(p => p.Key.StreamKey).ToList();
+
+        server.RegisterStreamWaitingClient(streamKeysToWatch, tcs);
+
+        try
+        {
+            var timeoutTask = blockTimeout.Value == TimeSpan.Zero
+                ? Task.Delay(Timeout.InfiniteTimeSpan) // Wait indefinitely for BLOCK 0
+                : Task.Delay(blockTimeout.Value);
+
+            var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
+
+            if (completedTask == timeoutTask)
+            {
+                await connection.SendResp(new BulkString(null));
+                return;
+            }
+
+            var finalStreamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
+            await connection.SendResp(new Array(finalStreamArrays));
+        }
+        finally
+        {
+            server.UnregisterStreamWaitingClient(streamKeysToWatch, tcs);
+        }
     }
 
     private static (TimeSpan? BlockTimeout, RespObject[] StreamKeyIdPairArgs) ValidateAndParseArguments(RespObject[] args)
