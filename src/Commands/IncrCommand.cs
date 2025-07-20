@@ -18,10 +18,7 @@ public class IncrCommand(Database db) : ICommand
 
         var key = args[0].GetString("key");
 
-        if (!db.TryGetValue<StringRecord>(key, out var stringRecord))
-            throw new ArgumentException("Invalid key format. Expected string key.");
-
-        var newValue = int.Parse(stringRecord.Value) + 1;
+        var newValue = db.TryGetValue<StringRecord>(key, out var stringRecord) ? int.Parse(stringRecord.Value) + 1 : 1;
 
         db.AddOrUpdate(key, new StringRecord(newValue.ToString()));
 
