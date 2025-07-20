@@ -10,6 +10,8 @@ public class IncrCommand(Database db) : ICommand
 {
     public const string Name = "INCR";
 
+    private const string ValueIsNotIntegerError = "ERR value is not an integer or out of range";
+
     public async Task Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
@@ -18,7 +20,19 @@ public class IncrCommand(Database db) : ICommand
 
         var key = args[0].GetString("key");
 
-        var newValue = db.TryGetValue<StringRecord>(key, out var stringRecord) ? int.Parse(stringRecord.Value) + 1 : 1;
+        int newValue;
+        if (db.TryGetValue<StringRecord>(key, out var stringRecord))
+        {
+            if (!int.TryParse(stringRecord.Value, out var value))
+            {
+                await connection.SendResp(new SimpleError(ValueIsNotIntegerError));
+                return;
+            }
+
+            newValue = value + 1;
+        }
+        else
+            newValue = 1;
 
         db.AddOrUpdate(key, new StringRecord(newValue.ToString()));
 
