@@ -30,6 +30,9 @@ public class RedisServer
 
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<TaskCompletionSource<bool>, byte>> _activeStreamWaitingClients = new();
 
+    private readonly ConcurrentDictionary<Socket, ConcurrentQueue<(string CommandName, string Request, ICommand Command, RespObject[] Args)>> _execWaitingCommands = new();
+
+
     public RedisConfiguration Config { get; }
     public readonly string Role;
     public readonly string? MasterReplicationId;
@@ -114,11 +117,9 @@ public class RedisServer
         }
     }
 
-    private readonly ConcurrentDictionary<Socket, ConcurrentQueue<(ICommand Command, RespObject[] Args)>> _execWaitingCommands = new();
-
     public void StartExecWaitingCommands(Socket socket)
     {
-        _execWaitingCommands.TryAdd(socket, new ConcurrentQueue<(ICommand, RespObject[])>());
+        _execWaitingCommands.TryAdd(socket, new ConcurrentQueue<(string, string, ICommand, RespObject[])>());
     }
 
     public async Task<int> ExecuteWaitingCommands(Socket socket)
@@ -129,7 +130,7 @@ public class RedisServer
         var count = 0;
         while (queue.TryDequeue(out var command))
         {
-            await command.Command.Handle(socket, command.Args);
+            await ExecuteCommand(socket, command.CommandName, command.Request, command.Command, command.Args);
             count++;
         }
 
@@ -230,21 +231,16 @@ public class RedisServer
                 {
                     var singleRequest = requestArray.ToString();
 
-                    if (Role == MasterRole && IsWriteCommand(commandName))
-                        BroadcastToReplications(singleRequest);
-
                     var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
 
                     if (command is not ExecCommand && _execWaitingCommands.TryGetValue(connection, out var execWaitingCommandsQueue))
                     {
-                        execWaitingCommandsQueue.Enqueue((command, args));
+                        execWaitingCommandsQueue.Enqueue((commandName, singleRequest, command, args));
+                        await connection.SendResp(new SimpleString("QUEUED"));
                         continue;
                     }
 
-                    await command.Handle(connection, args);
-
-                    if (Role == SlaveRole && connection.IsMaster())
-                        Offset += singleRequest.Length;
+                    await ExecuteCommand(connection, commandName, singleRequest, command, args);
                 }
             }
         }
@@ -259,6 +255,17 @@ public class RedisServer
 
             connection.Dispose();
         }
+    }
+
+    private async Task ExecuteCommand(Socket connection, string commandName, string request, ICommand command, RespObject[] args)
+    {
+        if (Role == MasterRole && IsWriteCommand(commandName))
+            BroadcastToReplications(request);
+
+        await command.Handle(connection, args);
+
+        if (Role == SlaveRole && connection.IsMaster())
+            Offset += request.Length;
     }
 
     private void BroadcastToReplications(string request)
