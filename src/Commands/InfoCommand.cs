@@ -11,13 +11,12 @@ public class InfoCommand(RedisServer redisServer) : ICommand
     private const string AllSection = "all";
     private const string ReplicationSection = "replication";
 
-
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         var section = GetRequestedSection(args);
         var infoResponse = GenerateInfoResponse(section);
 
-        await connection.SendResp(infoResponse);
+        return Task.FromResult<RespObject>(infoResponse);
     }
 
     private static string GetRequestedSection(RespObject[] args)
@@ -54,7 +53,7 @@ public class InfoCommand(RedisServer redisServer) : ICommand
     private void AppendReplicationInfo(StringBuilder builder)
     {
         builder.AppendLine("# Replication");
-        builder.AppendLine($"role:{redisServer.Role}");
+        builder.AppendLine($"role:{redisServer.Role.ToString().ToLowerInvariant()}");
         builder.AppendLine($"master_replid:{redisServer.MasterReplicationId}");
         builder.AppendLine($"master_repl_offset:{redisServer.MasterReplicationOffset}");
     }

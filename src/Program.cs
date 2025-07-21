@@ -1,6 +1,9 @@
 using codecrafters_redis.Commands;
 using codecrafters_redis.Rdb;
+using codecrafters_redis.Resp.Parsing;
 using codecrafters_redis.Server;
+using codecrafters_redis.Server.Replications;
+using codecrafters_redis.Server.Transactions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -12,6 +15,14 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<Database>();
 
         services.AddSingleton<RedisServer>();
+        
+        services.AddScoped<ConnectionHandler>();
+        
+        services.AddSingleton<NotificationManager>();
+        services.AddSingleton<ReplicationManager>();
+        services.AddSingleton<TransactionManager>();
+        
+        services.AddSingleton<RespCommandParser>();
 
         services.AddKeyedScoped<ICommand, PingCommand>(PingCommand.Name);
         services.AddKeyedScoped<ICommand, EchoCommand>(EchoCommand.Name);

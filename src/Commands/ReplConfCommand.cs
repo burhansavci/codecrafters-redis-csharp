@@ -1,21 +1,21 @@
 using System.Net.Sockets;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
+using codecrafters_redis.Server.Replications;
 
 namespace codecrafters_redis.Commands;
 
-public class ReplConfCommand(RedisServer server) : ICommand
+public class ReplConfCommand(ReplicationManager replicationManager) : ICommand
 {
     public const string Name = "REPLCONF";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfNotEqual(args.Length, 2);
 
-        server.AddReplica(connection);
+        replicationManager.AddReplica(connection);
 
-        await connection.SendResp(SimpleString.Ok);
+        return Task.FromResult<RespObject>(SimpleString.Ok);
     }
 }

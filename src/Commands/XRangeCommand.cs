@@ -3,7 +3,6 @@ using System.Net.Sockets;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Commands;
@@ -12,7 +11,7 @@ public class XRangeCommand(Database db) : ICommand
 {
     public const string Name = "XRANGE";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -28,8 +27,8 @@ public class XRangeCommand(Database db) : ICommand
         var entries = streamRecord.GetEntriesInRange(start, end);
 
         var entryArrays = entries.Select(CreateEntryArray).ToArray<RespObject>();
-
-        await connection.SendResp(new Array(entryArrays));
+        
+        return Task.FromResult<RespObject>(new Array(entryArrays));
     }
 
     private static StreamEntryId NormalizeStreamId(string id, long defaultSequence = 0)

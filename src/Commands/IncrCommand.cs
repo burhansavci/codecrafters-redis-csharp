@@ -2,7 +2,6 @@ using System.Net.Sockets;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
@@ -12,7 +11,7 @@ public class IncrCommand(Database db) : ICommand
 
     private const string ValueIsNotIntegerError = "ERR value is not an integer or out of range";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -24,10 +23,7 @@ public class IncrCommand(Database db) : ICommand
         if (db.TryGetValue<StringRecord>(key, out var stringRecord))
         {
             if (!int.TryParse(stringRecord.Value, out var value))
-            {
-                await connection.SendResp(new SimpleError(ValueIsNotIntegerError));
-                return;
-            }
+                return Task.FromResult<RespObject>(new SimpleError(ValueIsNotIntegerError));
 
             newValue = value + 1;
         }
@@ -36,6 +32,6 @@ public class IncrCommand(Database db) : ICommand
 
         db.AddOrUpdate(key, new StringRecord(newValue.ToString()));
 
-        await connection.SendResp(new Integer(newValue));
+        return Task.FromResult<RespObject>(new Integer(newValue));
     }
 }

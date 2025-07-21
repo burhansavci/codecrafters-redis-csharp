@@ -9,7 +9,7 @@ public class PsyncCommand(RedisServer redisServer) : ICommand
 {
     public const string Name = "PSYNC";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public async Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -40,5 +40,7 @@ public class PsyncCommand(RedisServer redisServer) : ICommand
         System.Array.Copy(rdbBinaryData, 0, combinedResponse, headerBytes.Length, rdbBinaryData.Length);
 
         await connection.SendAsync(combinedResponse);
+
+        return SelfHandled.Instance;
     }
 }

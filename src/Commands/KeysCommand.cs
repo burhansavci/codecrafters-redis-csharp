@@ -11,7 +11,7 @@ public class KeysCommand(RedisServer redisServer) : ICommand
     public const string Name = "KEYS";
     private const char Wildcard = '*';
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -28,7 +28,7 @@ public class KeysCommand(RedisServer redisServer) : ICommand
 
         var array = new Array(matchingKeys);
 
-        await connection.SendResp(array);
+        return Task.FromResult<RespObject>(array);
     }
 
     private static bool MatchesPattern(string key, string pattern)

@@ -2,7 +2,6 @@ using System.Net.Sockets;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
@@ -10,7 +9,7 @@ public class SetCommand(Database db) : ICommand
 {
     public const string Name = "SET";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -37,8 +36,8 @@ public class SetCommand(Database db) : ICommand
             expireTime = TimeSpan.FromMilliseconds(expireTimeMsLong);
         }
 
-        db.Add(key!, new StringRecord(value!, utcNow + expireTime));
+        db.Add(key, new StringRecord(value!, utcNow + expireTime));
 
-        await connection.SendResp(SimpleString.Ok);
+        return Task.FromResult<RespObject>(SimpleString.Ok);
     }
 }

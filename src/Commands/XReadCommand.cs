@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
-using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
+using System.Reactive.Linq;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
@@ -9,7 +9,7 @@ using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class XReadCommand(Database db, RedisServer server) : ICommand
+public class XReadCommand(Database db, NotificationManager notificationManager) : ICommand
 {
     public const string Name = "XREAD";
 
@@ -18,7 +18,7 @@ public class XReadCommand(Database db, RedisServer server) : ICommand
     private const string BlockArg = "BLOCK";
     private const string SpecialId = "$";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public async Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         var (blockTimeout, streamKeyIdPairArgs) = ValidateAndParseArguments(args);
 
@@ -26,43 +26,26 @@ public class XReadCommand(Database db, RedisServer server) : ICommand
         var streamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
 
         if (streamArrays.Length > 0)
-        {
-            await connection.SendResp(new Array(streamArrays));
-            return;
-        }
+            return new Array(streamArrays);
 
         if (!blockTimeout.HasValue)
-        {
-            await connection.SendResp(new BulkString(null));
-            return;
-        }
+            return new BulkString(null);
 
-        var tcs = new TaskCompletionSource<bool>();
         var streamKeysToWatch = streamKeyIdPairs.Select(p => p.Key.StreamKey).ToList();
 
-        server.RegisterStreamWaitingClient(streamKeysToWatch, tcs);
+        // Create observables for each stream we're watching
+        var streamObservables = streamKeysToWatch.Select(streamKey => notificationManager.Subscribe($"stream:{streamKey}")).ToArray();
 
-        try
-        {
-            var timeoutTask = blockTimeout.Value == TimeSpan.Zero
-                ? Task.Delay(Timeout.InfiniteTimeSpan) // Wait indefinitely for BLOCK 0
-                : Task.Delay(blockTimeout.Value);
+        var mergedNotifications = streamObservables.Length == 1 ? streamObservables[0] : Observable.Merge(streamObservables);
 
-            var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
+        var waitStream = blockTimeout.Value == TimeSpan.Zero
+            ? mergedNotifications
+            : mergedNotifications.Merge(Observable.Timer(blockTimeout.Value).Select(_ => true));
 
-            if (completedTask == timeoutTask)
-            {
-                await connection.SendResp(new BulkString(null));
-                return;
-            }
+        await waitStream.Take(1);
 
-            var finalStreamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
-            await connection.SendResp(new Array(finalStreamArrays));
-        }
-        finally
-        {
-            server.UnregisterStreamWaitingClient(streamKeysToWatch, tcs);
-        }
+        var finalStreamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
+        return finalStreamArrays.Length > 0 ? new Array(finalStreamArrays) : new BulkString(null);
     }
 
     private static (TimeSpan? BlockTimeout, RespObject[] StreamKeyIdPairArgs) ValidateAndParseArguments(RespObject[] args)

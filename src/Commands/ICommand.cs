@@ -5,5 +5,5 @@ namespace codecrafters_redis.Commands;
 
 public interface ICommand
 {
-    Task Handle(Socket connection, RespObject[] args);
+    Task<RespObject> Handle(Socket connection, RespObject[] args);
 }

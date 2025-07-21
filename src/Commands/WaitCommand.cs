@@ -1,68 +1,48 @@
 using System.Net.Sockets;
+using System.Reactive.Linq;
 using codecrafters_redis.Resp;
 using codecrafters_redis.Server;
+using codecrafters_redis.Server.Replications;
 
 namespace codecrafters_redis.Commands;
 
-public class WaitCommand(RedisServer server) : ICommand
+public class WaitCommand(NotificationManager notificationManager, ReplicationManager replicationManager) : ICommand
 {
     public const string Name = "WAIT";
+    private const string AcknowledgementEventKey = "acknowledgment";
 
-    private readonly TaskCompletionSource<int> _completionSource = new();
-    private int _targetReplicaCount;
-
-    public bool IsCompleted => _completionSource?.Task.IsCompleted ?? true;
-
-    public async Task Handle(Socket connection, RespObject[] args)
+    public async Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfNotEqual(args.Length, 2);
 
-        var numReplications = args[0].GetString(" number of replications");
-        var timeout = args[1].GetString("timeout");
+        if (!int.TryParse(args[0].GetString("number of replications"), out var targetReplicaCount))
+            throw new ArgumentException("Invalid replica count format");
 
-        _targetReplicaCount = int.Parse(numReplications);
+        if (!int.TryParse(args[1].GetString("timeout"), out var timeoutMs) || timeoutMs < 0)
+            throw new ArgumentException("Invalid timeout format");
 
-        var currentAcknowledgedCount = server.GetAcknowledgedReplicaCount();
-        if (currentAcknowledgedCount >= _targetReplicaCount)
-        {
-            await connection.SendResp(new Integer(currentAcknowledgedCount));
-            return;
-        }
+        var currentAcknowledgedCount = replicationManager.GetAcknowledgedReplicaCount();
 
-        if (server.HasPendingWriteOperations())
-            server.RequestReplicaAcknowledgments();
+        if (currentAcknowledgedCount >= targetReplicaCount)
+            return new Integer(currentAcknowledgedCount);
 
-        // Set up timeout
-        var cancellationTokenSource = new CancellationTokenSource(int.Parse(timeout));
-        cancellationTokenSource.Token.Register(() =>
-        {
-            if (!_completionSource.Task.IsCompleted)
-            {
-                // On timeout, complete with current acknowledged count
-                var currentCount = server.GetAcknowledgedReplicaCount();
-                _completionSource.TrySetResult(currentCount);
-            }
-        });
+        if (replicationManager.HasPendingWriteOperations())
+            replicationManager.RequestReplicaAcknowledgments();
 
-        // Register this command for notifications and wait for acknowledgments
-        server.RegisterWaitCommand(this);
-
-        try
-        {
-            var acknowledgedCount = await _completionSource.Task;
-            await connection.SendResp(new Integer(acknowledgedCount));
-        }
-        finally
-        {
-            server.UnregisterWaitCommand(this);
-            cancellationTokenSource.Dispose();
-        }
+        return await WaitForAcknowledgments(targetReplicaCount, timeoutMs);
     }
 
-    public void NotifyAcknowledgmentUpdate(int currentAcknowledgedCount)
+    private async Task<RespObject> WaitForAcknowledgments(int targetReplicaCount, int timeoutMs)
     {
-        if (currentAcknowledgedCount >= _targetReplicaCount && !IsCompleted)
-            _completionSource.TrySetResult(currentAcknowledgedCount);
+        var acknowledgmentStream = notificationManager.Subscribe(AcknowledgementEventKey).Where(_ => replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount);
+
+        var waitStream = timeoutMs == 0
+            ? acknowledgmentStream
+            : acknowledgmentStream.Merge(Observable.Timer(TimeSpan.FromMilliseconds(timeoutMs)).Select(_ => true));
+
+        await waitStream.Take(1);
+
+        return new Integer(replicationManager.GetAcknowledgedReplicaCount());
     }
 }

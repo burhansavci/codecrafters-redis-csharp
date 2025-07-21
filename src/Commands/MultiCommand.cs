@@ -1,17 +1,18 @@
 using System.Net.Sockets;
 using codecrafters_redis.Resp;
 using codecrafters_redis.Server;
+using codecrafters_redis.Server.Transactions;
 
 namespace codecrafters_redis.Commands;
 
-public class MultiCommand(RedisServer server) : ICommand
+public class MultiCommand(TransactionManager transactionManager) : ICommand
 {
     public const string Name = "MULTI";
-
-    public async Task Handle(Socket connection, RespObject[] args)
+    
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
-        server.StartExecWaitingCommands(connection);
+        transactionManager.StartTransaction(connection);
 
-        await connection.SendResp(SimpleString.Ok);
+        return Task.FromResult<RespObject>(SimpleString.Ok);
     }
 }

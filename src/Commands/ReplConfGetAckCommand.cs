@@ -10,7 +10,7 @@ public class ReplConfGetAckCommand(RedisServer server) : ICommand
 {
     public const string Name = "REPLCONF GETACK";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public async Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -25,5 +25,7 @@ public class ReplConfGetAckCommand(RedisServer server) : ICommand
         );
 
         await connection.SendAsync(Encoding.UTF8.GetBytes(array));
+        
+        return SelfHandled.Instance;
     }
 }

@@ -9,7 +9,7 @@ public class ConfigGetCommand(RedisConfiguration configuration) : ICommand
 {
     public const string Name = "CONFIG GET";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -24,6 +24,6 @@ public class ConfigGetCommand(RedisConfiguration configuration) : ICommand
             _ => throw new ArgumentException($"Unknown configuration parameter: {configName}")
         };
 
-        await connection.SendResp(response);
+        return Task.FromResult<RespObject>(response);
     }
 }

@@ -20,6 +20,15 @@ public class RespCommandParser(IServiceProvider serviceProvider)
                 if (!requestPart.StartsWith(DataType.Array))
                     continue;
 
+                // Skip malformed array indicators (like standalone "*")
+                if (requestPart.Length < 2)
+                {
+                    Console.WriteLine($"{index}");
+                    Console.WriteLine(request.Replace("\r", "\\r").Replace("\n", "\\n"));
+                    Console.WriteLine($"Skipping malformed array indicator: '{requestPart.Replace("\r", "\\r").Replace("\n", "\\n")}'");
+                    continue;
+                }
+
                 var (array, arrayItemsLength) = ParseArrayRequest(requests, index);
                 var (commandName, args) = ExtractCommandAndArgs(array);
 

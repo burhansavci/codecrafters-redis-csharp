@@ -6,7 +6,7 @@ using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public sealed class XAddCommand(Database db, RedisServer server) : ICommand
+public sealed class XAddCommand(Database db, NotificationManager notificationManager) : ICommand
 {
     public const string Name = "XADD";
 
@@ -14,7 +14,7 @@ public sealed class XAddCommand(Database db, RedisServer server) : ICommand
     private const string ZeroIdError = "The ID specified in XADD must be greater than 0-0";
     private const string InvalidIdError = "The ID specified in XADD is equal or smaller than the target stream top item";
 
-    public async Task Handle(Socket connection, RespObject[] args)
+    public Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         try
         {
@@ -37,13 +37,13 @@ public sealed class XAddCommand(Database db, RedisServer server) : ICommand
                 db.Add(streamKey, newStream);
             }
 
-            server.NotifyClientsForStream(streamKey);
+            notificationManager.Notify($"stream:{streamKey}");
 
-            await connection.SendResp(new BulkString(entryId.ToString()));
+            return Task.FromResult<RespObject>(new BulkString(entryId.ToString()));
         }
         catch (Exception ex)
         {
-            await connection.SendResp(new SimpleError($"ERR {ex.Message}"));
+            return Task.FromResult<RespObject>(new SimpleError($"ERR {ex.Message}"));
         }
     }
 
