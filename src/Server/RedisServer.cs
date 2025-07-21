@@ -114,6 +114,30 @@ public class RedisServer
         }
     }
 
+    private readonly ConcurrentDictionary<Socket, ConcurrentQueue<(ICommand Command, RespObject[] Args)>> _execWaitingCommands = new();
+
+    public void StartExecWaitingCommands(Socket socket)
+    {
+        _execWaitingCommands.TryAdd(socket, new ConcurrentQueue<(ICommand, RespObject[])>());
+    }
+
+    public async Task<int> ExecuteWaitingCommands(Socket socket)
+    {
+        if (!_execWaitingCommands.TryGetValue(socket, out var queue))
+            return -1;
+
+        var count = 0;
+        while (queue.TryDequeue(out var command))
+        {
+            await command.Command.Handle(socket, command.Args);
+            count++;
+        }
+
+        _execWaitingCommands.TryRemove(socket, out _);
+        return count;
+    }
+
+
     /// <summary>
     /// Handles replica acknowledgment and notifies waiting WAIT commands
     /// </summary>
@@ -210,6 +234,12 @@ public class RedisServer
                         BroadcastToReplications(singleRequest);
 
                     var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
+
+                    if (command is not ExecCommand && _execWaitingCommands.TryGetValue(connection, out var execWaitingCommandsQueue))
+                    {
+                        execWaitingCommandsQueue.Enqueue((command, args));
+                        continue;
+                    }
 
                     await command.Handle(connection, args);
 
