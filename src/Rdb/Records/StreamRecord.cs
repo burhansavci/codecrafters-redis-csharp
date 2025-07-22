@@ -62,7 +62,7 @@ public sealed record StreamRecord : Record, IDisposable
         }
     }
 
-    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesInRange(StreamEntryId startId, StreamEntryId endId)
+    public List<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesInRange(StreamEntryId startId, StreamEntryId endId)
     {
         _lock.EnterReadLock();
         try
@@ -78,7 +78,7 @@ public sealed record StreamRecord : Record, IDisposable
         }
     }
 
-    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesAfter(StreamEntryId startId)
+    public List<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesAfter(StreamEntryId startId)
     {
         _lock.EnterReadLock();
         try

@@ -21,31 +21,50 @@ public class XReadCommand(Database db, NotificationManager notificationManager) 
     public async Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         var (blockTimeout, streamKeyIdPairArgs) = ValidateAndParseArguments(args);
-
         var streamKeyIdPairs = ParseStreamKeyIdPairs(streamKeyIdPairArgs);
-        var streamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
 
-        if (streamArrays.Length > 0)
-            return new Array(streamArrays);
+        var immediateResults = GetStreamResults(streamKeyIdPairs);
+        if (immediateResults.Length > 0)
+            return new Array(immediateResults);
 
         if (!blockTimeout.HasValue)
             return new BulkString(null);
 
-        var streamKeysToWatch = streamKeyIdPairs.Select(p => p.Key.StreamKey).ToList();
+        return await HandleBlockingRead(streamKeyIdPairs, blockTimeout.Value);
+    }
 
-        // Create observables for each stream we're watching
+    private async Task<RespObject> HandleBlockingRead(List<KeyValuePair<StreamRecord, StreamEntryId>> streamKeyIdPairs, TimeSpan blockTimeout)
+    {
+        var streamKeysToWatch = streamKeyIdPairs.ConvertAll(p => p.Key.StreamKey);
         var streamObservables = streamKeysToWatch.Select(streamKey => notificationManager.Subscribe($"stream:{streamKey}")).ToArray();
-
         var mergedNotifications = streamObservables.Length == 1 ? streamObservables[0] : Observable.Merge(streamObservables);
 
-        var waitStream = blockTimeout.Value == TimeSpan.Zero
-            ? mergedNotifications
-            : mergedNotifications.Merge(Observable.Timer(blockTimeout.Value).Select(_ => true));
+        RespObject[] initialStreamArrays = [];
+        
+        // Initial check stream to see if data arrived between initial check and subscription
+        var initialCheckStream = Observable.Defer(() =>
+        {
+            initialStreamArrays = GetStreamResults(streamKeyIdPairs);
+            return initialStreamArrays.Length > 0 ? Observable.Return(true) : Observable.Empty<bool>();
+        });
 
-        await waitStream.Take(1);
+        var timeoutStream = blockTimeout == TimeSpan.Zero ? Observable.Never<bool>() : Observable.Timer(blockTimeout).Select(_ => true);
 
-        var finalStreamArrays = streamKeyIdPairs.Select(CreateStreamArray).Where(x => x != Array.Empty).ToArray<RespObject>();
+        await initialCheckStream
+            .Merge(mergedNotifications)
+            .Merge(timeoutStream)
+            .Take(1);
+
+        var finalStreamArrays = initialStreamArrays.Length > 0 ? initialStreamArrays : GetStreamResults(streamKeyIdPairs);
         return finalStreamArrays.Length > 0 ? new Array(finalStreamArrays) : new BulkString(null);
+    }
+
+    private static RespObject[] GetStreamResults(List<KeyValuePair<StreamRecord, StreamEntryId>> streamKeyIdPairs)
+    {
+        var results = new List<RespObject>(streamKeyIdPairs.Count);
+        results.AddRange(streamKeyIdPairs.Select(CreateStreamArray).Where(streamArray => streamArray != Array.Empty));
+
+        return results.ToArray();
     }
 
     private static (TimeSpan? BlockTimeout, RespObject[] StreamKeyIdPairArgs) ValidateAndParseArguments(RespObject[] args)
@@ -90,30 +109,41 @@ public class XReadCommand(Database db, NotificationManager notificationManager) 
 
     private List<KeyValuePair<StreamRecord, StreamEntryId>> ParseStreamKeyIdPairs(RespObject[] streamKeyIdPairArgs)
     {
-        var pairs = new List<KeyValuePair<StreamRecord, StreamEntryId>>();
         var streamKeysLength = streamKeyIdPairArgs.Length / 2;
+        var pairs = new List<KeyValuePair<StreamRecord, StreamEntryId>>(streamKeysLength);
 
         for (int i = 0; i < streamKeysLength; i++)
         {
             var streamKey = streamKeyIdPairArgs[i].GetString($"stream key at position {i + 1}");
-            if (!db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
-                throw new ArgumentException("Invalid stream key format. Expected stream key.");
+            var streamRecord = GetOrCreateStreamRecord(streamKey);
 
             var streamEntryIdString = streamKeyIdPairArgs[i + streamKeysLength].GetString($"stream entry ID at position {i + streamKeysLength + 2}");
             var streamEntryId = streamEntryIdString == SpecialId ? streamRecord.LastEntryId ?? StreamEntryId.Zero : StreamEntryId.Create(streamEntryIdString);
-
             pairs.Add(new KeyValuePair<StreamRecord, StreamEntryId>(streamRecord, streamEntryId));
         }
 
         return pairs;
     }
 
+    private StreamRecord GetOrCreateStreamRecord(string streamKey)
+    {
+        if (db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
+            return streamRecord;
+
+        // If stream doesn't exist, create a dummy one to hold the ID.
+        // This is needed so XREAD can block on a non-existent stream.
+        return StreamRecord.Create(streamKey, StreamEntryId.Zero, []);
+    }
+
     private static Array CreateStreamArray(KeyValuePair<StreamRecord, StreamEntryId> pair)
     {
         var entries = pair.Key.GetEntriesAfter(pair.Value);
-        var entryArrays = entries.Select(CreateEntryArray).ToArray<RespObject>();
 
-        return entryArrays.Length == 0 ? Array.Empty : new Array(new BulkString(pair.Key.StreamKey), new Array(entryArrays));
+        if (entries.Count == 0)
+            return Array.Empty;
+
+        var entryArrays = entries.Select(CreateEntryArray).ToArray<RespObject>();
+        return new Array(new BulkString(pair.Key.StreamKey), new Array(entryArrays));
     }
 
     private static Array CreateEntryArray(KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>> entry)
