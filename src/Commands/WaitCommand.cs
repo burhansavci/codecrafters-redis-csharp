@@ -37,11 +37,11 @@ public class WaitCommand(NotificationManager notificationManager, ReplicationMan
     {
         var acknowledgmentStream = notificationManager.Subscribe(AcknowledgementEventKey).Where(_ => replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount);
 
-        var waitStream = timeoutMs == 0
-            ? acknowledgmentStream
-            : acknowledgmentStream.Merge(Observable.Timer(TimeSpan.FromMilliseconds(timeoutMs)).Select(_ => true));
+        var timeoutStream = timeoutMs > 0 ? Observable.Timer(TimeSpan.FromMilliseconds(timeoutMs)).Select(_ => true) : Observable.Never<bool>();
 
-        await waitStream.Take(1);
+        var initialCheckStream = replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount ? Observable.Return(true) : Observable.Empty<bool>();
+
+        await initialCheckStream.Merge(acknowledgmentStream).Merge(timeoutStream).Take(1);
 
         return new Integer(replicationManager.GetAcknowledgedReplicaCount());
     }

@@ -35,7 +35,7 @@ public class ReplicationManager(RedisServer redisServer, NotificationManager not
             try
             {
                 _ = socket.SendAsync(Encoding.UTF8.GetBytes(request));
-                replicaState.ExpectedOffset = redisServer.Offset + request.Length;
+                replicaState.ExpectedOffset = redisServer.Offset;
                 replicaState.IsAcknowledged = false;
             }
             catch (Exception ex)
