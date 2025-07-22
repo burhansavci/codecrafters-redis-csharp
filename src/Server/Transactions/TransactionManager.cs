@@ -32,4 +32,6 @@ public class TransactionManager
         if (_execWaitingCommands.TryGetValue(socket, out var queue))
             queue.Enqueue(command);
     }
+    
+    public bool DiscardTransaction(Socket socket) => _execWaitingCommands.TryRemove(socket, out _);
 }
