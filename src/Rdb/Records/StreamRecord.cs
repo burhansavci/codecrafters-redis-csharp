@@ -2,9 +2,10 @@ using System.Collections.Immutable;
 
 namespace codecrafters_redis.Rdb.Records;
 
-public sealed record StreamRecord : Record
+public sealed record StreamRecord : Record, IDisposable
 {
     private readonly SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>> _entries;
+    private readonly ReaderWriterLockSlim _lock = new();
     private StreamEntryId? _lastEntryId;
 
     private StreamRecord(string streamKey, SortedDictionary<StreamEntryId, ImmutableDictionary<string, string>> entries, DateTime? expireAt = null) : base(entries, ValueType.Stream, expireAt)
@@ -14,7 +15,22 @@ public sealed record StreamRecord : Record
         _lastEntryId = entries.Count > 0 ? entries.Keys.Last() : null;
     }
 
-    public StreamEntryId? LastEntryId => _lastEntryId;
+    public StreamEntryId? LastEntryId
+    {
+        get
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                return _lastEntryId;
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+    }
+
     public string StreamKey { get; }
 
     public static StreamRecord Create(string streamKey, StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields, DateTime? expireAt = null)
@@ -28,21 +44,57 @@ public sealed record StreamRecord : Record
 
     public bool TryAppendEntry(StreamEntryId entryId, IEnumerable<KeyValuePair<string, string>> fields)
     {
-        if (_lastEntryId.HasValue && entryId <= _lastEntryId.Value)
-            return false;
+        _lock.EnterWriteLock();
+        try
+        {
+            if (_lastEntryId.HasValue && entryId <= _lastEntryId.Value)
+                return false;
 
-        var entryData = fields.ToImmutableDictionary();
-        _entries.Add(entryId, entryData);
-        _lastEntryId = entryId;
+            var entryData = fields.ToImmutableDictionary();
+            _entries.Add(entryId, entryData);
+            _lastEntryId = entryId;
 
-        return true;
+            return true;
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 
-    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesInRange(StreamEntryId startId, StreamEntryId endId) =>
-        _entries
-            .SkipWhile(kvp => kvp.Key < startId)
-            .TakeWhile(kvp => kvp.Key <= endId);
+    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesInRange(StreamEntryId startId, StreamEntryId endId)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _entries
+                .SkipWhile(kvp => kvp.Key < startId)
+                .TakeWhile(kvp => kvp.Key <= endId)
+                .ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
 
-    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesAfter(StreamEntryId startId) =>
-        _entries.SkipWhile(kvp => kvp.Key <= startId);
+    public IEnumerable<KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>>> GetEntriesAfter(StreamEntryId startId)
+    {
+        _lock.EnterReadLock();
+        try
+        {
+            return _entries
+                .SkipWhile(kvp => kvp.Key <= startId)
+                .ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+    }
+
+    public void Dispose()
+    {
+        _lock.Dispose();
+    }
 }
