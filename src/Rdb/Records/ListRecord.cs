@@ -4,17 +4,17 @@ namespace codecrafters_redis.Rdb.Records;
 
 public record ListRecord : Record
 {
-    private readonly ConcurrentQueue<string> _entries;
+    private ConcurrentQueue<string> Entries { get; set; }
 
     private ListRecord(string listKey, ConcurrentQueue<string> entries, DateTime? expireAt = null) : base(entries, ValueType.List, expireAt)
     {
-        _entries = entries;
+        Entries = entries;
         ListKey = listKey;
     }
 
     public string ListKey { get; }
 
-    public int Count => _entries.Count;
+    public int Count => Entries.Count;
 
     public static ListRecord Create(string listKey, DateTime? expireAt = null, params string[] values)
     {
@@ -23,17 +23,24 @@ public record ListRecord : Record
         return new ListRecord(listKey, list, expireAt);
     }
 
-    public void Append(string entry) => _entries.Enqueue(entry);
+    public void Append(string entry) => Entries.Enqueue(entry);
+
+    public void Prepend(string entry)
+    {
+        var list = Entries.ToList();
+        list.Insert(0, entry);
+        Entries = new ConcurrentQueue<string>(list);
+    }
 
     public string[] GetEntriesInRange(int startIndex, int endIndex)
     {
-        if (startIndex < 0 || endIndex < 0 || startIndex > endIndex || startIndex >= _entries.Count)
+        if (startIndex < 0 || endIndex < 0 || startIndex > endIndex || startIndex >= Entries.Count)
             return [];
 
         var count = endIndex - startIndex + 1;
-        if (endIndex >= _entries.Count) 
-            count = _entries.Count - startIndex;
-        
-        return _entries.ToArray().AsSpan(startIndex, count).ToArray();
+        if (endIndex >= Entries.Count)
+            count = Entries.Count - startIndex;
+
+        return Entries.ToArray().AsSpan(startIndex, count).ToArray();
     }
 }
