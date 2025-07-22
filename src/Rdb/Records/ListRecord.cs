@@ -25,5 +25,15 @@ public record ListRecord : Record
 
     public void Append(string entry) => _entries.Enqueue(entry);
 
-    public string[] GetEntriesInRange(int startIndex, int endIndex) => _entries.ToArray().AsSpan(startIndex, endIndex - startIndex + 1).ToArray();
+    public string[] GetEntriesInRange(int startIndex, int endIndex)
+    {
+        if (startIndex < 0 || endIndex < 0 || startIndex > endIndex || startIndex >= _entries.Count)
+            return [];
+
+        var count = endIndex - startIndex + 1;
+        if (endIndex >= _entries.Count) 
+            count = _entries.Count - startIndex;
+        
+        return _entries.ToArray().AsSpan(startIndex, count).ToArray();
+    }
 }

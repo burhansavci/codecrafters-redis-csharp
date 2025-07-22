@@ -24,14 +24,21 @@ public class LRangeCommand(Database db) : ICommand
         if (!int.TryParse(args[2].GetString("endIndex"), out var endIndex))
             throw new ArgumentException("Invalid end index. Expected integer.");
 
-        if (!db.TryGetValue<ListRecord>(listKey, out var listRecord) || startIndex >= listRecord.Count)
+        if (!db.TryGetValue<ListRecord>(listKey, out var listRecord))
             return Task.FromResult<RespObject>(new Array());
-        
-        if (endIndex >= listRecord.Count)
-            endIndex = listRecord.Count - 1;
-        
-        if (startIndex > endIndex)
+
+        var count = listRecord.Count;
+
+        if (startIndex < 0) startIndex = count + startIndex;
+        if (endIndex < 0) endIndex = count + endIndex;
+
+        if (startIndex < 0) startIndex = 0;
+
+        if (startIndex >= count || startIndex > endIndex)
             return Task.FromResult<RespObject>(new Array());
+
+        if (endIndex >= count)
+            endIndex = count - 1;
 
         var entries = listRecord.GetEntriesInRange(startIndex, endIndex).Select(x => new BulkString(x)).ToArray<RespObject>();
 
