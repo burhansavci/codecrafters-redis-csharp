@@ -4,5 +4,6 @@ namespace codecrafters_redis.Rdb;
 public enum ValueType
 {
     String = 0,
-    Stream = 15 
+    List = 1,
+    Stream = 15
 }

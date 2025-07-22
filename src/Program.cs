@@ -15,13 +15,13 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<Database>();
 
         services.AddSingleton<RedisServer>();
-        
+
         services.AddScoped<ConnectionHandler>();
-        
+
         services.AddSingleton<NotificationManager>();
         services.AddSingleton<ReplicationManager>();
         services.AddSingleton<TransactionManager>();
-        
+
         services.AddSingleton<RespCommandParser>();
 
         services.AddKeyedScoped<ICommand, PingCommand>(PingCommand.Name);
@@ -44,6 +44,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, MultiCommand>(MultiCommand.Name);
         services.AddKeyedScoped<ICommand, ExecCommand>(ExecCommand.Name);
         services.AddKeyedScoped<ICommand, DiscardCommand>(DiscardCommand.Name);
+        services.AddKeyedScoped<ICommand, RPushCommand>(RPushCommand.Name);
     })
     .Build();
 
