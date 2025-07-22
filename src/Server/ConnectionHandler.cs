@@ -40,7 +40,7 @@ public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandPars
                     var singleRequest = requestArray.ToString();
                     var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
 
-                    if (transactionManager.IsTransactionInProgress(connection) && command is not ExecCommand)
+                    if (transactionManager.IsTransactionInProgress(connection) && (command is not ExecCommand || command is not DiscardCommand))
                     {
                         transactionManager.EnqueueCommand(connection, new QueuedCommand(commandName, singleRequest, command, args));
                         await connection.SendResp(new SimpleString("QUEUED"));
@@ -48,7 +48,7 @@ public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandPars
                     else
                     {
                         var response = await ExecuteCommand(connection, commandName, singleRequest, command, args);
-                        if (response is not SelfHandled) 
+                        if (response is not SelfHandled)
                             await connection.SendResp(response);
                     }
                 }
