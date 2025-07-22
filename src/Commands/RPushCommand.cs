@@ -13,15 +13,16 @@ public class RPushCommand(Database db) : ICommand
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
-        ArgumentOutOfRangeException.ThrowIfNotEqual(args.Length, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(args.Length, 2);
 
         var listKey = args[0].GetString("listKey");
-        var value = args[1].GetString("value");
+        var values = args.Skip(1).Select(x => x.GetString("value")).ToArray();
 
         if (db.TryGetValue<ListRecord>(listKey, out var listRecord))
-            listRecord.Append(value);
+            foreach (var value in values)
+                listRecord.Append(value);
         else
-            listRecord = ListRecord.Create(listKey, values: value);
+            listRecord = ListRecord.Create(listKey, values: values);
 
         db.AddOrUpdate(listKey, listRecord);
 
