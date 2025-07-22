@@ -1,12 +1,11 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class KeysCommand(RedisServer redisServer) : ICommand
+public class KeysCommand(Database db) : ICommand
 {
     public const string Name = "KEYS";
     private const char Wildcard = '*';
@@ -19,12 +18,7 @@ public class KeysCommand(RedisServer redisServer) : ICommand
 
         var pattern = args[0].GetString("pattern");
 
-        using var reader = new RdbReader(redisServer.Config.Directory, redisServer.Config.DbFileName);
-        var db = reader.Read();
-
-        var allKeys = db.Keys.ToArray();
-
-        var matchingKeys = allKeys.Where(key => MatchesPattern(key, pattern)).Select(x => new BulkString(x)).ToArray<RespObject>();
+        var matchingKeys = db.Keys.Where(key => MatchesPattern(key, pattern)).Select(x => new BulkString(x)).ToArray<RespObject>();
 
         var array = new Array(matchingKeys);
 

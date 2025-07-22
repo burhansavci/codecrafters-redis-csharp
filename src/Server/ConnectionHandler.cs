@@ -71,8 +71,8 @@ public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandPars
     {
         if (redisServer.IsMaster && IsWriteCommand(commandName))
         {
-            replicationManager.BroadcastToReplicas(request);
             redisServer.Offset += request.Length;
+            replicationManager.BroadcastToReplicas(request);
         }
 
         var response = await command.Handle(connection, args);

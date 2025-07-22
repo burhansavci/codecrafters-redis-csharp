@@ -16,6 +16,8 @@ public class Database
 
         LoadFromRdb();
     }
+    
+    public IEnumerable<string> Keys => _records.Keys;
 
     public void Add(string key, Record record) => _records.TryAdd(key, record);
 

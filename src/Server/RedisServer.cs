@@ -13,8 +13,8 @@ public class RedisServer
 
     private readonly IServiceProvider _serviceProvider;
     private readonly ReplicationClient? _replicationClient;
-
-    public RedisConfiguration Config { get; }
+    private readonly RedisConfiguration _config;
+   
     public readonly ServerRole Role;
     public bool IsMaster => Role == ServerRole.Master;
     public bool IsSlave => Role == ServerRole.Slave;
@@ -25,12 +25,12 @@ public class RedisServer
     public RedisServer(RedisConfiguration config, IServiceProvider serviceProvider)
     {
         _serviceProvider = serviceProvider;
-        Config = config;
+        _config = config;
 
-        if (Config.IsReplica)
+        if (_config.IsReplica)
         {
             Role = ServerRole.Slave;
-            _replicationClient = new ReplicationClient(Config.Port, Config.MasterHost!, Config.MasterPort!.Value);
+            _replicationClient = new ReplicationClient(_config.Port, _config.MasterHost!, _config.MasterPort!.Value);
         }
         else
         {
@@ -57,7 +57,7 @@ public class RedisServer
     private async Task StartListening()
     {
         using var listenSocket = new Socket(SocketType.Stream, ProtocolType.Tcp);
-        listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, Config.Port));
+        listenSocket.Bind(new IPEndPoint(IPAddress.Loopback, _config.Port));
 
         listenSocket.Listen();
         while (true)
