@@ -45,6 +45,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, ExecCommand>(ExecCommand.Name);
         services.AddKeyedScoped<ICommand, DiscardCommand>(DiscardCommand.Name);
         services.AddKeyedScoped<ICommand, RPushCommand>(RPushCommand.Name);
+        services.AddKeyedScoped<ICommand, LRangeCommand>(LRangeCommand.Name);
     })
     .Build();
 

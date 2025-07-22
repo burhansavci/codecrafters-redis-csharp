@@ -24,4 +24,6 @@ public record ListRecord : Record
     }
 
     public void Append(string entry) => _entries.Enqueue(entry);
+
+    public string[] GetEntriesInRange(int startIndex, int endIndex) => _entries.ToArray().AsSpan(startIndex, endIndex - startIndex + 1).ToArray();
 }
