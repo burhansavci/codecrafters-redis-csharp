@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using System.Net.Sockets;
-using System.Reactive.Linq;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
@@ -35,30 +34,33 @@ public class XReadCommand(Database db, NotificationManager notificationManager) 
 
     private async Task<RespObject> HandleBlockingRead(List<KeyValuePair<StreamRecord, StreamEntryId>> streamKeyIdPairs, TimeSpan blockTimeout)
     {
-        var streamKeysToWatch = streamKeyIdPairs.ConvertAll(p => p.Key.StreamKey);
-        var streamObservables = streamKeysToWatch.Select(streamKey => notificationManager.Subscribe($"stream:{streamKey}")).ToArray();
-        var mergedNotifications = streamObservables.Length == 1 ? streamObservables[0] : Observable.Merge(streamObservables);
+        var tcs = new TaskCompletionSource<bool>();
+        var streamKeysToWatch = streamKeyIdPairs.Select(p => p.Key.StreamKey).ToList();
 
-        RespObject[] initialStreamArrays = [];
-        
-        // Initial check stream to see if data arrived between initial check and subscription
-        var initialCheckStream = Observable.Defer(() =>
+        foreach (var key in streamKeysToWatch) 
+            notificationManager.Subscribe($"stream:{key}", tcs);
+
+        try
         {
-            initialStreamArrays = GetStreamResults(streamKeyIdPairs);
-            return initialStreamArrays.Length > 0 ? Observable.Return(true) : Observable.Empty<bool>();
-        });
+            var timeoutTask = blockTimeout == TimeSpan.Zero ? Task.Delay(Timeout.Infinite) : Task.Delay(blockTimeout);
 
-        var timeoutStream = blockTimeout == TimeSpan.Zero ? Observable.Never<bool>() : Observable.Timer(blockTimeout).Select(_ => true);
+            var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
 
-        await initialCheckStream
-            .Merge(mergedNotifications)
-            .Merge(timeoutStream)
-            .Take(1);
+            // If the timeout finished first, return a null response.
+            if (completedTask == timeoutTask)
+                return new BulkString(null);
 
-        var finalStreamArrays = initialStreamArrays.Length > 0 ? initialStreamArrays : GetStreamResults(streamKeyIdPairs);
-        return finalStreamArrays.Length > 0 ? new Array(finalStreamArrays) : new BulkString(null);
+            // If we were notified, re-fetch the entries and return them.
+            var finalStreamArrays = GetStreamResults(streamKeyIdPairs);
+            return new Array(finalStreamArrays);
+        }
+        finally
+        {
+            foreach (var key in streamKeysToWatch) 
+                notificationManager.Unsubscribe($"stream:{key}", tcs);
+        }
     }
-
+    
     private static RespObject[] GetStreamResults(List<KeyValuePair<StreamRecord, StreamEntryId>> streamKeyIdPairs)
     {
         var results = new List<RespObject>(streamKeyIdPairs.Count);
@@ -130,8 +132,7 @@ public class XReadCommand(Database db, NotificationManager notificationManager) 
         if (db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
             return streamRecord;
 
-        // If stream doesn't exist, create a dummy one to hold the ID.
-        // This is needed so XREAD can block on a non-existent stream.
+        //If a stream doesn't exist, we still need to track its ID for the '$' case.
         return StreamRecord.Create(streamKey, StreamEntryId.Zero, []);
     }
 

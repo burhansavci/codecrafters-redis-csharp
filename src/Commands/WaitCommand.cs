@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using System.Reactive.Linq;
 using codecrafters_redis.Resp;
 using codecrafters_redis.Server;
 using codecrafters_redis.Server.Replications;
@@ -30,18 +29,40 @@ public class WaitCommand(NotificationManager notificationManager, ReplicationMan
         if (replicationManager.HasPendingWriteOperations())
             replicationManager.RequestReplicaAcknowledgments();
 
-        return await WaitForAcknowledgments(targetReplicaCount, timeoutMs);
-    }
+        var tcs = new TaskCompletionSource<bool>();
+        notificationManager.Subscribe(AcknowledgementEventKey, tcs);
 
-    private async Task<RespObject> WaitForAcknowledgments(int targetReplicaCount, int timeoutMs)
-    {
-        var acknowledgmentStream = notificationManager.Subscribe(AcknowledgementEventKey).Where(_ => replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount);
+        try
+        {
+            var timeout = timeoutMs == 0 ? Timeout.Infinite : timeoutMs;
 
-        var timeoutStream = timeoutMs > 0 ? Observable.Timer(TimeSpan.FromMilliseconds(timeoutMs)).Select(_ => true) : Observable.Never<bool>();
+            using var timeoutCts = new CancellationTokenSource(timeout);
+            var notificationTask = tcs.Task;
 
-        var initialCheckStream = replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount ? Observable.Return(true) : Observable.Empty<bool>();
+            while (!timeoutCts.IsCancellationRequested)
+            {
+                if (replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount)
+                    break;
 
-        await initialCheckStream.Merge(acknowledgmentStream).Merge(timeoutStream).Take(1);
+                try
+                {
+                    await notificationTask.WaitAsync(timeoutCts.Token);
+
+                    // If notified, create a new task for the next notification.
+                    tcs = new TaskCompletionSource<bool>();
+                    notificationManager.Subscribe(AcknowledgementEventKey, tcs);
+                    notificationTask = tcs.Task;
+                }
+                catch (TaskCanceledException)
+                {
+                    // Expected on timeout. Loop will terminate.
+                }
+            }
+        }
+        finally
+        {
+            notificationManager.UnsubscribeAll(AcknowledgementEventKey);
+        }
 
         return new Integer(replicationManager.GetAcknowledgedReplicaCount());
     }

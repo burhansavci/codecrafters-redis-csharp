@@ -1,35 +1,33 @@
 using System.Collections.Concurrent;
-using System.Reactive.Subjects;
 
 namespace codecrafters_redis.Server;
 
-public sealed class NotificationManager : IDisposable
+public sealed class NotificationManager
 {
-    private readonly ConcurrentDictionary<string, Subject<bool>> _subjects = new();
-    private bool _disposed;
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<TaskCompletionSource<bool>, byte>> _subscriptions = new();
 
-    public IObservable<bool> Subscribe(string eventKey)
+    public void Subscribe(string eventKey, TaskCompletionSource<bool> tcs)
     {
-        var subject = _subjects.GetOrAdd(eventKey, _ => new Subject<bool>());
-        return subject;
+        var subscribers = _subscriptions.GetOrAdd(eventKey, _ => new ConcurrentDictionary<TaskCompletionSource<bool>, byte>());
+        subscribers.TryAdd(tcs, 0); // The value (0) is a dummy value
+    }
+
+    public void Unsubscribe(string eventKey, TaskCompletionSource<bool> tcs)
+    {
+        if (_subscriptions.TryGetValue(eventKey, out var subscribers))
+            subscribers.TryRemove(tcs, out _);
+    }
+    
+    public void UnsubscribeAll(string eventKey)
+    {
+        if (_subscriptions.TryGetValue(eventKey, out var subscribers))
+            subscribers.Clear();
     }
 
     public void Notify(string eventKey)
     {
-        if (_subjects.TryGetValue(eventKey, out var subject)) 
-            subject.OnNext(true);
-    }
-
-    public void Dispose()
-    {
-        if (_disposed) return;
-        
-        foreach (var subject in _subjects.Values)
-        {
-            subject.OnCompleted();
-            subject.Dispose();
-        }
-        _subjects.Clear();
-        _disposed = true;
+        if (_subscriptions.TryGetValue(eventKey, out var subscribers))
+            foreach (var tcs in subscribers.Keys)
+                tcs.TrySetResult(true);
     }
 }
