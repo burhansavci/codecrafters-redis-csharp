@@ -40,7 +40,7 @@ public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandPars
                     var singleRequest = requestArray.ToString();
                     var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
 
-                    if (transactionManager.IsTransactionInProgress(connection) && (command is not ExecCommand || command is not DiscardCommand))
+                    if (transactionManager.IsTransactionInProgress(connection) && command is not ExecCommand && command is not DiscardCommand)
                     {
                         transactionManager.EnqueueCommand(connection, new QueuedCommand(commandName, singleRequest, command, args));
                         await connection.SendResp(new SimpleString("QUEUED"));
