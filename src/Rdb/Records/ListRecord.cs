@@ -31,8 +31,24 @@ public record ListRecord : Record
         list.Insert(0, entry);
         Entries = new ConcurrentQueue<string>(list);
     }
-    
-    public string? Pop() => Entries.TryDequeue(out var entry) ? entry : null;
+
+    public string[]? Pop(int count)
+    {
+        if (count <= 0)
+            return null;
+
+        if (count > Entries.Count)
+            count = Entries.Count;
+
+        if (count == Entries.Count)
+            return Entries.ToArray();
+
+        var list = new string[count];
+        for (var i = 0; i < count; i++)
+            Entries.TryDequeue(out list[i]);
+
+        return list;
+    }
 
     public string[] GetEntriesInRange(int startIndex, int endIndex)
     {
