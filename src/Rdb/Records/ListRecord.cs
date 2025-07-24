@@ -45,7 +45,12 @@ public record ListRecord : Record
 
         var list = new string[count];
         for (var i = 0; i < count; i++)
-            Entries.TryDequeue(out list[i]);
+        {
+            Entries.TryDequeue(out var entry);
+
+            if (entry is not null)
+                list[i] = entry;
+        }
 
         return list;
     }
