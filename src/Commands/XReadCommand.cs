@@ -37,18 +37,19 @@ public class XReadCommand(Database db, NotificationManager notificationManager) 
         var tcs = new TaskCompletionSource<bool>();
         var streamKeysToWatch = streamKeyIdPairs.Select(p => p.Key.StreamKey).ToList();
 
-        foreach (var key in streamKeysToWatch) 
+        foreach (var key in streamKeysToWatch)
             notificationManager.Subscribe($"stream:{key}", tcs);
 
         try
         {
-            var timeoutTask = blockTimeout == TimeSpan.Zero ? Task.Delay(Timeout.Infinite) : Task.Delay(blockTimeout);
-
-            var completedTask = await Task.WhenAny(tcs.Task, timeoutTask);
-
-            // If the timeout finished first, return a null response.
-            if (completedTask == timeoutTask)
-                return new BulkString(null);
+            if (blockTimeout == TimeSpan.Zero)
+                await tcs.Task;
+            else
+            {
+                var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(blockTimeout));
+                if (completedTask != tcs.Task)
+                    return new BulkString(null);
+            }
 
             // If we were notified, re-fetch the entries and return them.
             var finalStreamArrays = GetStreamResults(streamKeyIdPairs);
@@ -56,11 +57,11 @@ public class XReadCommand(Database db, NotificationManager notificationManager) 
         }
         finally
         {
-            foreach (var key in streamKeysToWatch) 
+            foreach (var key in streamKeysToWatch)
                 notificationManager.Unsubscribe($"stream:{key}", tcs);
         }
     }
-    
+
     private static RespObject[] GetStreamResults(List<KeyValuePair<StreamRecord, StreamEntryId>> streamKeyIdPairs)
     {
         var results = new List<RespObject>(streamKeyIdPairs.Count);
