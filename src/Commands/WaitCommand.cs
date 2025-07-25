@@ -32,36 +32,31 @@ public class WaitCommand(NotificationManager notificationManager, ReplicationMan
         var tcs = new TaskCompletionSource<bool>();
         notificationManager.Subscribe(AcknowledgementEventKey, tcs);
 
-        try
+        var timeout = timeoutMs == 0 ? Timeout.Infinite : timeoutMs;
+
+        using var timeoutCts = new CancellationTokenSource(timeout);
+        var notificationTask = tcs.Task;
+
+        while (!timeoutCts.IsCancellationRequested)
         {
-            var timeout = timeoutMs == 0 ? Timeout.Infinite : timeoutMs;
+            if (replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount)
+                break;
 
-            using var timeoutCts = new CancellationTokenSource(timeout);
-            var notificationTask = tcs.Task;
-
-            while (!timeoutCts.IsCancellationRequested)
+            try
             {
-                if (replicationManager.GetAcknowledgedReplicaCount() >= targetReplicaCount)
-                    break;
+                await notificationTask.WaitAsync(timeoutCts.Token);
+                
+                await Task.Delay(100, timeoutCts.Token);
 
-                try
-                {
-                    await notificationTask.WaitAsync(timeoutCts.Token);
-
-                    // If notified, create a new task for the next notification.
-                    tcs = new TaskCompletionSource<bool>();
-                    notificationManager.Subscribe(AcknowledgementEventKey, tcs);
-                    notificationTask = tcs.Task;
-                }
-                catch (TaskCanceledException)
-                {
-                    // Expected on timeout. Loop will terminate.
-                }
+                // If notified, create a new task for the next notification.
+                tcs = new TaskCompletionSource<bool>();
+                notificationManager.Subscribe(AcknowledgementEventKey, tcs);
+                notificationTask = tcs.Task;
             }
-        }
-        finally
-        {
-            notificationManager.UnsubscribeAll(AcknowledgementEventKey);
+            catch (TaskCanceledException)
+            {
+                // Expected on timeout. Loop will terminate.
+            }
         }
 
         return new Integer(replicationManager.GetAcknowledgedReplicaCount());

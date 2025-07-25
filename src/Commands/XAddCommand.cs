@@ -37,7 +37,7 @@ public sealed class XAddCommand(Database db, NotificationManager notificationMan
                 db.Add(streamKey, newStream);
             }
 
-            notificationManager.Notify($"stream:{streamKey}");
+            notificationManager.NotifyAll($"stream:{streamKey}");
 
             return Task.FromResult<RespObject>(new BulkString(entryId.ToString()));
         }

@@ -49,6 +49,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, LPushCommand>(LPushCommand.Name);
         services.AddKeyedScoped<ICommand, LLenCommand>(LLenCommand.Name);
         services.AddKeyedScoped<ICommand, LPopCommand>(LPopCommand.Name);
+        services.AddKeyedScoped<ICommand, BLPopCommand>(BLPopCommand.Name);
     })
     .Build();
 

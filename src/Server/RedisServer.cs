@@ -65,6 +65,7 @@ public class RedisServer
             var connection = await listenSocket.AcceptAsync();
             var connectionHandler = _serviceProvider.GetRequiredService<ConnectionHandler>();
             _ = Task.Run(() => connectionHandler.Handle(connection));
+            await Task.Delay(10);
         }
     }
 }

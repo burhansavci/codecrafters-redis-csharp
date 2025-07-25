@@ -41,7 +41,11 @@ public record ListRecord : Record
             count = Entries.Count;
 
         if (count == Entries.Count)
-            return Entries.ToArray();
+        {
+            var entries = Entries.ToArray();
+            Entries.Clear();
+            return entries;
+        }
 
         var list = new string[count];
         for (var i = 0; i < count; i++)

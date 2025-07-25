@@ -76,7 +76,7 @@ public class ReplicationManager(RedisServer redisServer, NotificationManager not
             replicaState.IsAcknowledged = acknowledgedOffset >= replicaState.ExpectedOffset;
         }
 
-        notificationManager.Notify("acknowledgment");
+        notificationManager.NotifyAll("acknowledgment");
     }
 
     public int GetAcknowledgedReplicaCount() => _replicaStates.Values.Count(state => state.IsAcknowledged || state.AcknowledgedOffset >= state.ExpectedOffset);
