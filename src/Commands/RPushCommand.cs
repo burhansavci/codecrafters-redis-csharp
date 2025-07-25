@@ -29,9 +29,11 @@ public class RPushCommand(Database db, NotificationManager notificationManager) 
             listRecord = ListRecord.Create(listKey, values: values);
 
         db.AddOrUpdate(listKey, listRecord);
+        
+        var count = listRecord.Count;
 
         notificationManager.Notify($"list:{listKey}");
 
-        return Task.FromResult<RespObject>(new Integer(listRecord.Count));
+        return Task.FromResult<RespObject>(new Integer(count));
     }
 }
