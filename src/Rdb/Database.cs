@@ -1,39 +1,60 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using codecrafters_redis.Rdb.List;
 using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.Stream;
 using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Rdb;
 
-public class Database
+public sealed class Database : IDisposable
 {
     private readonly RedisConfiguration _configuration;
     private readonly ConcurrentDictionary<string, Record> _records = new();
+    private readonly ListOperations _listOperations;
+    private readonly StreamOperations _streamOperations;
+    private volatile bool _disposed;
 
     public Database(RedisConfiguration configuration)
     {
         _configuration = configuration;
-
+        _listOperations = new ListOperations(_records);
+        _streamOperations = new StreamOperations(_records);
         LoadFromRdb();
     }
-    
+
     public IEnumerable<string> Keys => _records.Keys;
-
-    public void Add(string key, Record record) => _records.TryAdd(key, record);
-
-    public void AddOrUpdate(string key, Record record) => _records.AddOrUpdate(key, record, (_, _) => record);
 
     public bool TryGetValue<T>(string key, [MaybeNullWhen(false)] out T record) where T : Record
     {
-        if (_records.TryGetValue(key, out var innerRecord) && innerRecord is T { IsExpired: false } typedRecord)
-        {
-            record = typedRecord;
-            return true;
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
 
-        record = null;
-        return false;
+        return _records.TryGetRecord(key, out record);
     }
+
+    public void AddOrUpdate(string key, Record record)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentException.ThrowIfNullOrEmpty(key);
+        ArgumentNullException.ThrowIfNull(record);
+
+        _records.AddOrUpdate(key, record, (_, _) => record);
+    }
+
+    public int Push(string listKey, IReadOnlyList<string> values, ListPushDirection direction)
+        => _listOperations.Push(listKey, values, direction);
+
+    public string[]? Pop(string listKey, int count = 1, ListPopDirection direction = ListPopDirection.Left)
+        => _listOperations.Pop(listKey, count, direction);
+
+    public async Task<ListPopResult?> Pop(IReadOnlyList<string> listKeys, TimeSpan timeout, ListPopDirection direction = ListPopDirection.Left)
+        => await _listOperations.Pop(listKeys, timeout, direction);
+    
+    public StreamEntryId AddStreamEntry(string streamKey, string entryIdString, IReadOnlyList<KeyValuePair<string, string>> fields)
+        => _streamOperations.AddStreamEntry(streamKey, entryIdString, fields);
+
+    public async Task<StreamReadResult?> GetStreams(IReadOnlyList<StreamReadRequest> requests, TimeSpan timeout)
+        => await _streamOperations.Get(requests, timeout);
 
     private void LoadFromRdb()
     {
@@ -45,5 +66,31 @@ public class Database
 
         foreach (var kvp in db)
             _records.TryAdd(kvp.Key, kvp.Value);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+
+        _listOperations.Dispose();
+        _streamOperations.Dispose();
+    }
+}
+
+public static class DbExtensions
+{
+    public static bool TryGetRecord<T>(this ConcurrentDictionary<string, Record> records, string key, [MaybeNullWhen(false)] out T record) where T : Record
+    {
+        if (records.TryGetValue(key, out var innerRecord) && innerRecord is T { IsExpired: false } typedRecord)
+        {
+            record = typedRecord;
+            return true;
+        }
+
+        record = null;
+        return false;
     }
 }

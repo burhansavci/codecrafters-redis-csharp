@@ -18,7 +18,6 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddScoped<ConnectionHandler>();
 
-        services.AddSingleton<NotificationManager>();
         services.AddSingleton<ReplicationManager>();
         services.AddSingleton<TransactionManager>();
 

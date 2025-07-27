@@ -21,6 +21,7 @@ public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandPars
             while (connection.Connected)
             {
                 var read = await connection.ReceiveAsync(buffer);
+                Console.WriteLine($"{connection.RemoteEndPoint}: {Encoding.UTF8.GetString(buffer, 0, read).Replace("\r", "\\r").Replace("\n", "\\n")}");
                 if (read <= 0) break;
 
                 var request = Encoding.UTF8.GetString(buffer, 0, read);

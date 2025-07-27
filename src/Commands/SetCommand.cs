@@ -36,7 +36,7 @@ public class SetCommand(Database db) : ICommand
             expireTime = TimeSpan.FromMilliseconds(expireTimeMsLong);
         }
 
-        db.Add(key, new StringRecord(value!, utcNow + expireTime));
+        db.AddOrUpdate(key, new StringRecord(value!, utcNow + expireTime));
 
         return Task.FromResult<RespObject>(SimpleString.Ok);
     }

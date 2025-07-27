@@ -1,6 +1,5 @@
 using System.Net.Sockets;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 using codecrafters_redis.Server.Transactions;
 
 namespace codecrafters_redis.Commands;

@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
+using codecrafters_redis.Rdb.List;
 using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
 using Array = codecrafters_redis.Resp.Array;

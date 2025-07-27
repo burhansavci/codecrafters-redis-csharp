@@ -2,11 +2,10 @@ using System.Net.Sockets;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public sealed class XAddCommand(Database db, NotificationManager notificationManager) : ICommand
+public sealed class XAddCommand(Database db) : ICommand
 {
     public const string Name = "XADD";
 
@@ -20,24 +19,7 @@ public sealed class XAddCommand(Database db, NotificationManager notificationMan
         {
             var (streamKey, id, fields) = ValidateAndParseArguments(args);
 
-            db.TryGetValue<StreamRecord>(streamKey, out var existingStream);
-
-            var entryId = StreamEntryId.Create(id, existingStream?.LastEntryId);
-
-            ValidateEntryId(entryId, existingStream);
-
-            if (existingStream != null)
-            {
-                if (!existingStream.TryAppendEntry(entryId, fields))
-                    throw new ArgumentException(InvalidIdError);
-            }
-            else
-            {
-                var newStream = StreamRecord.Create(streamKey, entryId, fields);
-                db.Add(streamKey, newStream);
-            }
-
-            notificationManager.NotifyAll($"stream:{streamKey}");
+            var entryId = db.AddStreamEntry(streamKey, id, fields);
 
             return Task.FromResult<RespObject>(new BulkString(entryId.ToString()));
         }
@@ -59,7 +41,7 @@ public sealed class XAddCommand(Database db, NotificationManager notificationMan
         var id = args[1].GetString("entry ID");
         var fields = ParseFieldValuePairs(args.Skip(2).ToArray());
 
-        return new ValueTuple<string, string, List<KeyValuePair<string, string>>>(streamKey, id, fields);
+        return (streamKey, id, fields);
     }
 
     private static List<KeyValuePair<string, string>> ParseFieldValuePairs(RespObject[] fieldValueArgs)

@@ -1,12 +1,11 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.List;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 
 namespace codecrafters_redis.Commands;
 
-public class RPushCommand(Database db, NotificationManager notificationManager) : ICommand
+public class RPushCommand(Database db) : ICommand
 {
     public const string Name = "RPUSH";
 
@@ -22,17 +21,7 @@ public class RPushCommand(Database db, NotificationManager notificationManager) 
         if (values.Length == 0)
             throw new ArgumentException("Invalid values. Expected at least one value.");
 
-        if (db.TryGetValue<ListRecord>(listKey, out var listRecord))
-            foreach (var value in values)
-                listRecord.Append(value);
-        else
-            listRecord = ListRecord.Create(listKey, values: values);
-
-        db.AddOrUpdate(listKey, listRecord);
-        
-        var count = listRecord.Count;
-
-        notificationManager.Notify($"list:{listKey}");
+        var count = db.Push(listKey, values, ListPushDirection.Right);
 
         return Task.FromResult<RespObject>(new Integer(count));
     }

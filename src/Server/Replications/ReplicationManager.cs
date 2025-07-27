@@ -6,9 +6,10 @@ using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Server.Replications;
 
-public class ReplicationManager(RedisServer redisServer, NotificationManager notificationManager)
+public class ReplicationManager(RedisServer redisServer)
 {
     private readonly ConcurrentDictionary<Socket, ReplicaState> _replicaStates = new();
+    private readonly ConcurrentQueue<TaskCompletionSource<bool>> _waitingAcknowledgments = new();
 
     public void AddReplica(Socket replicaSocket)
     {
@@ -23,10 +24,7 @@ public class ReplicationManager(RedisServer redisServer, NotificationManager not
         _replicaStates.TryAdd(replicaSocket, replicaState);
     }
 
-    public void RemoveReplica(Socket replicaSocket)
-    {
-        _replicaStates.TryRemove(replicaSocket, out _);
-    }
+    public void RemoveReplica(Socket replicaSocket) => _replicaStates.TryRemove(replicaSocket, out _);
 
     public void BroadcastToReplicas(string request)
     {
@@ -46,7 +44,58 @@ public class ReplicationManager(RedisServer redisServer, NotificationManager not
         }
     }
 
-    public void RequestReplicaAcknowledgments()
+    public void HandleReplicaAcknowledgment(Socket replicaSocket, int acknowledgedOffset)
+    {
+        if (_replicaStates.TryGetValue(replicaSocket, out var replicaState))
+        {
+            replicaState.AcknowledgedOffset = acknowledgedOffset;
+            replicaState.IsAcknowledged = acknowledgedOffset >= replicaState.ExpectedOffset;
+        }
+
+        while (_waitingAcknowledgments.TryDequeue(out var tcs))
+            tcs.TrySetResult(true);
+    }
+
+    public async Task<int> WaitForAcknowledgments(int targetReplicaCount, TimeSpan timeout)
+    {
+        var currentAcknowledgedCount = GetAcknowledgedReplicaCount();
+
+        if (currentAcknowledgedCount >= targetReplicaCount)
+            return currentAcknowledgedCount;
+
+        if (HasPendingWriteOperations())
+            RequestReplicaAcknowledgments();
+
+        using var timeoutCts = new CancellationTokenSource(timeout);
+        while (!timeoutCts.IsCancellationRequested)
+        {
+            currentAcknowledgedCount = GetAcknowledgedReplicaCount();
+            if (currentAcknowledgedCount >= targetReplicaCount)
+                break;
+
+            var tcs = new TaskCompletionSource<bool>();
+            _waitingAcknowledgments.Enqueue(tcs);
+            
+            try
+            {
+                await tcs.Task.WaitAsync(timeoutCts.Token);
+                await Task.Delay(100, timeoutCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                // Expected on timeout. Loop will terminate.
+                break;
+            }
+        }
+
+        return GetAcknowledgedReplicaCount();
+    }
+
+    private int GetAcknowledgedReplicaCount() => _replicaStates.Values.Count(state => state.IsAcknowledged || state.AcknowledgedOffset >= state.ExpectedOffset);
+
+    private bool HasPendingWriteOperations() => _replicaStates.Values.Any(state => !state.IsAcknowledged && state.ExpectedOffset > state.AcknowledgedOffset);
+
+    private void RequestReplicaAcknowledgments()
     {
         var getAckCommand = new Array(
             new BulkString("REPLCONF"),
@@ -67,19 +116,4 @@ public class ReplicationManager(RedisServer redisServer, NotificationManager not
             }
         }
     }
-
-    public void HandleReplicaAcknowledgment(Socket replicaSocket, int acknowledgedOffset)
-    {
-        if (_replicaStates.TryGetValue(replicaSocket, out var replicaState))
-        {
-            replicaState.AcknowledgedOffset = acknowledgedOffset;
-            replicaState.IsAcknowledged = acknowledgedOffset >= replicaState.ExpectedOffset;
-        }
-
-        notificationManager.NotifyAll("acknowledgment");
-    }
-
-    public int GetAcknowledgedReplicaCount() => _replicaStates.Values.Count(state => state.IsAcknowledged || state.AcknowledgedOffset >= state.ExpectedOffset);
-
-    public bool HasPendingWriteOperations() => _replicaStates.Values.Any(state => !state.IsAcknowledged && state.ExpectedOffset > state.AcknowledgedOffset);
 }

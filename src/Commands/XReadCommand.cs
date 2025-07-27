@@ -1,151 +1,109 @@
 using System.Collections.Immutable;
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.Stream;
 using codecrafters_redis.Resp;
-using codecrafters_redis.Server;
 using Array = codecrafters_redis.Resp.Array;
 
 namespace codecrafters_redis.Commands;
 
-public class XReadCommand(Database db, NotificationManager notificationManager) : ICommand
+public sealed class XReadCommand(Database db) : ICommand
 {
     public const string Name = "XREAD";
-
     private const int MinRequiredArgs = 3;
-    private const string StreamsArg = "STREAMS";
-    private const string BlockArg = "BLOCK";
-    private const string SpecialId = "$";
+    private const string StreamsKeyword = "STREAMS";
+    private const string BlockKeyword = "BLOCK";
 
     public async Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
-        var (blockTimeout, streamKeyIdPairArgs) = ValidateAndParseArguments(args);
-        var streamKeyIdPairs = ParseStreamKeyIdPairs(streamKeyIdPairArgs);
-
-        var immediateResults = GetStreamResults(streamKeyIdPairs);
-        if (immediateResults.Length > 0)
-            return new Array(immediateResults);
-
-        if (!blockTimeout.HasValue)
-            return new BulkString(null);
-
-        return await HandleBlockingRead(streamKeyIdPairs, blockTimeout.Value);
-    }
-
-    private async Task<RespObject> HandleBlockingRead(List<KeyValuePair<StreamRecord, StreamEntryId>> streamKeyIdPairs, TimeSpan blockTimeout)
-    {
-        var tcs = new TaskCompletionSource<bool>();
-        var streamKeysToWatch = streamKeyIdPairs.Select(p => p.Key.StreamKey).ToList();
-
-        foreach (var key in streamKeysToWatch)
-            notificationManager.Subscribe($"stream:{key}", tcs);
-        
-        if (blockTimeout == TimeSpan.Zero)
-            await tcs.Task;
-        else
+        try
         {
-            var completedTask = await Task.WhenAny(tcs.Task, Task.Delay(blockTimeout));
-            if (completedTask != tcs.Task)
-                return new BulkString(null);
+            var (blockTimeout, streamRequests) = ParseArguments(args);
+            
+            var result = await db.GetStreams(streamRequests, blockTimeout);
+            
+            return result != null ? CreateResponseArray(result) : new BulkString(null);
         }
-
-        // If we were notified, re-fetch the entries and return them.
-        var finalStreamArrays = GetStreamResults(streamKeyIdPairs);
-        return new Array(finalStreamArrays);
+        catch (Exception ex)
+        {
+            return new SimpleError($"ERR {ex.Message}");
+        }
     }
-
-    private static RespObject[] GetStreamResults(List<KeyValuePair<StreamRecord, StreamEntryId>> streamKeyIdPairs)
+    
+    private static (TimeSpan BlockTimeout, List<StreamReadRequest> StreamRequests) ParseArguments(RespObject[] args)
     {
-        var results = new List<RespObject>(streamKeyIdPairs.Count);
-        results.AddRange(streamKeyIdPairs.Select(CreateStreamArray).Where(streamArray => streamArray != Array.Empty));
-
-        return results.ToArray();
-    }
-
-    private static (TimeSpan? BlockTimeout, RespObject[] StreamKeyIdPairArgs) ValidateAndParseArguments(RespObject[] args)
-    {
-        if (args == null || args.Length < MinRequiredArgs)
+        if (args.Length < MinRequiredArgs)
             throw new ArgumentException($"XREAD requires at least {MinRequiredArgs} arguments");
 
-        long? blockTimeoutMs = null;
+        var blockTimeout = TimeSpan.Zero;
         var argIndex = 0;
 
-        while (argIndex < args.Length)
+        // Parse optional BLOCK timeout
+        if (argIndex < args.Length && string.Equals(args[argIndex].GetString(), BlockKeyword, StringComparison.OrdinalIgnoreCase))
         {
-            var arg = args[argIndex].GetString($"argument at position {argIndex + 1}");
+            if (++argIndex >= args.Length)
+                throw new ArgumentException("BLOCK requires a timeout value");
 
-            switch (arg.ToUpperInvariant())
-            {
-                case BlockArg:
-                    if (argIndex + 1 >= args.Length || !args[argIndex + 1].TryGetString(out var timeoutStr))
-                        throw new ArgumentException($"{BlockArg} requires a timeout value");
+            var timeoutStr = args[argIndex++].GetString("timeout");
+            if (!long.TryParse(timeoutStr, out var timeoutMs))
+                throw new FormatException($"Invalid timeout format: {timeoutStr}");
 
-                    if (!long.TryParse(timeoutStr, out var timeoutMs))
-                        throw new FormatException($"Invalid timeout format: {timeoutStr}");
-
-                    blockTimeoutMs = timeoutMs;
-                    argIndex += 2;
-                    break;
-
-                case StreamsArg:
-                    var streamKeyIdPairArgs = args.Skip(argIndex + 1).ToArray();
-                    if (streamKeyIdPairArgs.Length == 0 || streamKeyIdPairArgs.Length % 2 != 0)
-                        throw new ArgumentException("STREAMS requires pairs of stream keys and IDs");
-
-                    return (blockTimeoutMs.HasValue ? TimeSpan.FromMilliseconds(blockTimeoutMs.Value) : null, streamKeyIdPairArgs);
-
-                default:
-                    throw new ArgumentException($"Unknown argument: {arg}");
-            }
+            blockTimeout = timeoutMs == 0 ? Timeout.InfiniteTimeSpan : TimeSpan.FromMilliseconds(timeoutMs);
         }
 
-        throw new ArgumentException($"XREAD command must contain the '{StreamsArg}' keyword");
-    }
+        // Parse STREAMS keyword and stream/ID pairs
+        if (argIndex >= args.Length || !string.Equals(args[argIndex++].GetString(), StreamsKeyword, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException($"XREAD command must contain '{StreamsKeyword}' keyword");
+        
+        var remainingArgs = args.Length - argIndex;
+        if (remainingArgs == 0 || remainingArgs % 2 != 0)
+            throw new ArgumentException("STREAMS requires pairs of stream keys and IDs");
 
-    private List<KeyValuePair<StreamRecord, StreamEntryId>> ParseStreamKeyIdPairs(RespObject[] streamKeyIdPairArgs)
-    {
-        var streamKeysLength = streamKeyIdPairArgs.Length / 2;
-        var pairs = new List<KeyValuePair<StreamRecord, StreamEntryId>>(streamKeysLength);
+        var streamCount = remainingArgs / 2;
+        var streamRequests = new List<StreamReadRequest>(streamCount);
 
-        for (int i = 0; i < streamKeysLength; i++)
+        // Parse stream keys and IDs
+        for (int i = 0; i < streamCount; i++)
         {
-            var streamKey = streamKeyIdPairArgs[i].GetString($"stream key at position {i + 1}");
-            var streamRecord = GetOrCreateStreamRecord(streamKey);
-
-            var streamEntryIdString = streamKeyIdPairArgs[i + streamKeysLength].GetString($"stream entry ID at position {i + streamKeysLength + 2}");
-            var streamEntryId = streamEntryIdString == SpecialId ? streamRecord.LastEntryId ?? StreamEntryId.Zero : StreamEntryId.Create(streamEntryIdString);
-            pairs.Add(new KeyValuePair<StreamRecord, StreamEntryId>(streamRecord, streamEntryId));
+            var streamKey = args[argIndex + i].GetString($"stream key at position {argIndex + i + 1}");
+            var startId = args[argIndex + streamCount + i].GetString($"stream ID at position {argIndex + streamCount + i + 1}");
+            
+            streamRequests.Add(new StreamReadRequest(streamKey, startId));
         }
 
-        return pairs;
+        return (blockTimeout, streamRequests);
     }
 
-    private StreamRecord GetOrCreateStreamRecord(string streamKey)
+    private static Array CreateResponseArray(StreamReadResult result)
     {
-        if (db.TryGetValue<StreamRecord>(streamKey, out var streamRecord))
-            return streamRecord;
+        var streamArrays = result.Results
+            .Select(CreateStreamArray)
+            .ToArray<RespObject>();
 
-        //If a stream doesn't exist, we still need to track its ID for the '$' case.
-        return StreamRecord.Create(streamKey, StreamEntryId.Zero, []);
+        return new Array(streamArrays);
     }
 
-    private static Array CreateStreamArray(KeyValuePair<StreamRecord, StreamEntryId> pair)
+    private static Array CreateStreamArray(StreamResult streamResult)
     {
-        var entries = pair.Key.GetEntriesAfter(pair.Value);
+        var entryArrays = streamResult.Entries
+            .Select(CreateEntryArray)
+            .ToArray<RespObject>();
 
-        if (entries.Count == 0)
-            return Array.Empty;
-
-        var entryArrays = entries.Select(CreateEntryArray).ToArray<RespObject>();
-        return new Array(new BulkString(pair.Key.StreamKey), new Array(entryArrays));
+        return new Array(
+            new BulkString(streamResult.StreamKey),
+            new Array(entryArrays)
+        );
     }
 
     private static Array CreateEntryArray(KeyValuePair<StreamEntryId, ImmutableDictionary<string, string>> entry)
     {
         var fieldValues = entry.Value
-            .SelectMany(kvp => new[] { new BulkString(kvp.Key), new BulkString(kvp.Value) })
-            .ToArray<RespObject>();
+            .SelectMany(field => new RespObject[] { new BulkString(field.Key), new BulkString(field.Value) })
+            .ToArray();
 
-        return new Array(new BulkString(entry.Key.ToString()), new Array(fieldValues));
+        return new Array(
+            new BulkString(entry.Key.ToString()),
+            new Array(fieldValues)
+        );
     }
 }
