@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.Extensions;
 
 namespace codecrafters_redis.Rdb.Stream;
 
@@ -33,7 +33,7 @@ internal sealed class StreamOperations(ConcurrentDictionary<string, Record> reco
         }
         else
         {
-            var newStream = StreamRecord.Create(streamKey, entryId, fields);
+            var newStream = StreamRecord.Create(entryId, fields);
             records.TryAdd(streamKey, newStream);
             stream = newStream;
         }

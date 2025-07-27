@@ -1,7 +1,6 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Rdb.List;
-using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Resp;
 using Array = codecrafters_redis.Resp.Array;
 
@@ -25,7 +24,7 @@ public class LRangeCommand(Database db) : ICommand
         if (!int.TryParse(args[2].GetString("endIndex"), out var endIndex))
             throw new ArgumentException("Invalid end index. Expected integer.");
 
-        if (!db.TryGetValue<ListRecord>(listKey, out var listRecord))
+        if (!db.TryGetRecord<ListRecord>(listKey, out var listRecord))
             return Task.FromResult<RespObject>(new Array());
 
         var count = listRecord.Count;

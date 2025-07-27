@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.Extensions;
 
 namespace codecrafters_redis.Rdb.List;
 
@@ -18,7 +18,7 @@ public sealed class ListOperations(ConcurrentDictionary<string, Record> records)
             throw new ArgumentException("At least one value is required");
 
         if (!records.TryGetRecord<ListRecord>(listKey, out var list))
-            list = ListRecord.Create(listKey, []);
+            list = ListRecord.Create([]);
 
         foreach (var value in values)
         {

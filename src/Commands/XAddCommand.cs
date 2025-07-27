@@ -1,6 +1,6 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.Stream;
 using codecrafters_redis.Resp;
 
 namespace codecrafters_redis.Commands;

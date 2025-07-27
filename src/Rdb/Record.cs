@@ -1,4 +1,4 @@
-namespace codecrafters_redis.Rdb.Records;
+namespace codecrafters_redis.Rdb;
 
 public record Record(object Value, ValueType Type, DateTime? ExpireAt = null)
 {

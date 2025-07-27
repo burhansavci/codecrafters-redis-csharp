@@ -1,4 +1,4 @@
-namespace codecrafters_redis.Rdb.Records;
+namespace codecrafters_redis.Rdb.String;
 
 public record StringRecord(string Value, DateTime? ExpireAt = null) : Record(Value, ValueType.String, ExpireAt)
 {

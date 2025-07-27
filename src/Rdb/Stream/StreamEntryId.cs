@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace codecrafters_redis.Rdb;
+namespace codecrafters_redis.Rdb.Stream;
 
 public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntryId>
 {
@@ -8,8 +8,8 @@ public struct StreamEntryId : IComparable<StreamEntryId>, IEquatable<StreamEntry
     public long Sequence { get; }
 
     public static StreamEntryId Zero => new(0, 0);
-    
-    public static StreamEntryId MaxValue => new (long.MaxValue, long.MaxValue);
+
+    public static StreamEntryId MaxValue => new(long.MaxValue, long.MaxValue);
 
     private StreamEntryId(long timestamp, long sequence)
     {

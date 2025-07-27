@@ -1,6 +1,6 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.String;
 using codecrafters_redis.Resp;
 
 namespace codecrafters_redis.Commands;
@@ -17,7 +17,7 @@ public class GetCommand(Database db) : ICommand
 
         var key = args[0].GetString("key");
 
-        var response = db.TryGetValue<StringRecord>(key, out var record) ? new BulkString(record.Value) : new BulkString(null);
+        var response = db.TryGetRecord<StringRecord>(key, out var record) ? new BulkString(record.Value) : new BulkString(null);
 
         return Task.FromResult<RespObject>(response);
     }

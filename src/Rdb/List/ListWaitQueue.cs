@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using codecrafters_redis.Rdb.Records;
 
 namespace codecrafters_redis.Rdb.List;
 
@@ -15,7 +14,7 @@ internal sealed class ListWaitQueue : IDisposable
         using var waiter = new ListWaiter(listKey, direction);
         _waiters.Enqueue(waiter);
 
-        return await waiter.WaitAsync(cancellationToken);
+        return await waiter.Wait(cancellationToken);
     }
 
     public void NotifyUpdate(ListRecord listRecord)
@@ -43,7 +42,7 @@ internal sealed class ListWaiter(string listKey, ListPopDirection direction) : I
     private readonly TaskCompletionSource<ListPopResult?> _tcs = new();
     private bool _disposed;
 
-    public Task<ListPopResult?> WaitAsync(CancellationToken cancellationToken)
+    public Task<ListPopResult?> Wait(CancellationToken cancellationToken)
     {
         if (_disposed)
             return Task.FromResult<ListPopResult?>(null);

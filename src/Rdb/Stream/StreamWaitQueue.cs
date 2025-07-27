@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using codecrafters_redis.Rdb.Records;
 
 namespace codecrafters_redis.Rdb.Stream;
 
@@ -15,7 +14,7 @@ internal sealed class StreamWaitQueue : IDisposable
         using var waiter = new StreamWaiter(streamKey, afterId);
         _waiters.Enqueue(waiter);
         
-        return await waiter.WaitAsync(cancellationToken);
+        return await waiter.Wait(cancellationToken);
     }
 
     public void NotifyUpdate(string streamKey, StreamRecord streamRecord)
@@ -51,7 +50,7 @@ internal sealed class StreamWaiter(string key, StreamEntryId afterId) : IDisposa
     private readonly TaskCompletionSource<StreamResult?> _tcs = new();
     private volatile bool _disposed;
 
-    public Task<StreamResult?> WaitAsync(CancellationToken cancellationToken)
+    public Task<StreamResult?> Wait(CancellationToken cancellationToken)
     {
         if (_disposed)
             return Task.FromResult<StreamResult?>(null);

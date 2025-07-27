@@ -1,6 +1,6 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.String;
 using codecrafters_redis.Resp;
 
 namespace codecrafters_redis.Commands;
@@ -20,7 +20,7 @@ public class IncrCommand(Database db) : ICommand
         var key = args[0].GetString("key");
 
         int newValue;
-        if (db.TryGetValue<StringRecord>(key, out var stringRecord))
+        if (db.TryGetRecord<StringRecord>(key, out var stringRecord))
         {
             if (!int.TryParse(stringRecord.Value, out var value))
                 return Task.FromResult<RespObject>(new SimpleError(ValueIsNotIntegerError));

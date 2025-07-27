@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using codecrafters_redis.Rdb.Extensions;
 using codecrafters_redis.Rdb.List;
-using codecrafters_redis.Rdb.Records;
 using codecrafters_redis.Rdb.Stream;
 using codecrafters_redis.Server;
 
@@ -13,7 +13,7 @@ public sealed class Database : IDisposable
     private readonly ConcurrentDictionary<string, Record> _records = new();
     private readonly ListOperations _listOperations;
     private readonly StreamOperations _streamOperations;
-    private volatile bool _disposed;
+    private bool _disposed;
 
     public Database(RedisConfiguration configuration)
     {
@@ -25,7 +25,7 @@ public sealed class Database : IDisposable
 
     public IEnumerable<string> Keys => _records.Keys;
 
-    public bool TryGetValue<T>(string key, [MaybeNullWhen(false)] out T record) where T : Record
+    public bool TryGetRecord<T>(string key, [MaybeNullWhen(false)] out T record) where T : Record
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -49,7 +49,7 @@ public sealed class Database : IDisposable
 
     public async Task<ListPopResult?> Pop(IReadOnlyList<string> listKeys, TimeSpan timeout, ListPopDirection direction = ListPopDirection.Left)
         => await _listOperations.Pop(listKeys, timeout, direction);
-    
+
     public StreamEntryId AddStreamEntry(string streamKey, string entryIdString, IReadOnlyList<KeyValuePair<string, string>> fields)
         => _streamOperations.AddStreamEntry(streamKey, entryIdString, fields);
 
@@ -77,20 +77,5 @@ public sealed class Database : IDisposable
 
         _listOperations.Dispose();
         _streamOperations.Dispose();
-    }
-}
-
-public static class DbExtensions
-{
-    public static bool TryGetRecord<T>(this ConcurrentDictionary<string, Record> records, string key, [MaybeNullWhen(false)] out T record) where T : Record
-    {
-        if (records.TryGetValue(key, out var innerRecord) && innerRecord is T { IsExpired: false } typedRecord)
-        {
-            record = typedRecord;
-            return true;
-        }
-
-        record = null;
-        return false;
     }
 }

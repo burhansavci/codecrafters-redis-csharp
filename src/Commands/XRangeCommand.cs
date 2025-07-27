@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
-using codecrafters_redis.Rdb.Records;
+using codecrafters_redis.Rdb.Stream;
 using codecrafters_redis.Resp;
 using Array = codecrafters_redis.Resp.Array;
 
@@ -18,7 +18,7 @@ public class XRangeCommand(Database db) : ICommand
         ArgumentOutOfRangeException.ThrowIfNotEqual(args.Length, 3);
 
         var key = args[0].GetString("key");
-        if (!db.TryGetValue<StreamRecord>(key, out var streamRecord))
+        if (!db.TryGetRecord<StreamRecord>(key, out var streamRecord))
             throw new ArgumentException("Invalid key format. Expected stream key.");
 
         var start = NormalizeStreamId(args[1].GetString("start"));
