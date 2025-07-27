@@ -95,7 +95,6 @@ public sealed class ListOperations(ConcurrentDictionary<string, Record> records)
         }
         catch (OperationCanceledException)
         {
-            Console.WriteLine($"null response");
             return null;
         }
         finally
