@@ -6,64 +6,84 @@ using codecrafters_redis.Resp.Parsing;
 using codecrafters_redis.Server.Replications;
 using codecrafters_redis.Server.Transactions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace codecrafters_redis.Server;
 
-public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandParser commandParser, RedisServer redisServer, ReplicationManager replicationManager, TransactionManager transactionManager)
+public sealed class ConnectionHandler(
+    IServiceProvider serviceProvider,
+    RespCommandParser commandParser,
+    RedisServer redisServer,
+    ReplicationManager replicationManager,
+    TransactionManager transactionManager,
+    ILogger<ConnectionHandler> logger)
 {
     private const int BufferSize = 4 * 1024;
 
-    public async Task Handle(Socket connection)
+    public async Task<bool> Handle(Socket connection)
     {
-        var buffer = new byte[BufferSize];
         try
         {
-            while (connection.Connected)
+            var shouldConnectionContinue = await HandleCore(connection);
+
+            if (!shouldConnectionContinue)
+                CleanupConnection(connection);
+
+            return shouldConnectionContinue;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling connection from {RemoteEndPoint}", connection.RemoteEndPoint);
+            CleanupConnection(connection);
+            return false;
+        }
+    }
+
+    private async Task<bool> HandleCore(Socket connection)
+    {
+        var buffer = new byte[BufferSize];
+
+        if (!connection.Connected)
+            return false;
+
+        var read = await connection.ReceiveAsync(buffer);
+        if (read <= 0) return false;
+
+        var request = Encoding.UTF8.GetString(buffer, 0, read);
+
+        if (redisServer.IsSlave && connection.IsMaster())
+        {
+            request = SkipFullResyncResponse(request);
+            if (string.IsNullOrWhiteSpace(request))
+                return true;
+        }
+
+        var commands = commandParser.GetRespCommands(request);
+
+        await ProcessCommands(connection, commands);
+        return true;
+    }
+
+    private async Task ProcessCommands(Socket connection, List<RespCommand> commands)
+    {
+        using var scope = serviceProvider.CreateScope();
+
+        foreach (var (commandName, args, requestArray) in commands)
+        {
+            var singleRequest = requestArray.ToString();
+            var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
+
+            if (transactionManager.IsTransactionInProgress(connection) && command is not ExecCommand && command is not DiscardCommand)
             {
-                var read = await connection.ReceiveAsync(buffer);
-                if (read <= 0) break;
-
-                var request = Encoding.UTF8.GetString(buffer, 0, read);
-
-                if (redisServer.IsSlave && connection.IsMaster())
-                {
-                    request = SkipFullResyncResponse(request);
-                    if (string.IsNullOrWhiteSpace(request))
-                        continue;
-                }
-
-                var commands = commandParser.GetRespCommands(request);
-
-                using var scope = serviceProvider.CreateScope();
-                foreach (var (commandName, args, requestArray) in commands)
-                {
-                    var singleRequest = requestArray.ToString();
-                    var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
-
-                    if (transactionManager.IsTransactionInProgress(connection) && command is not ExecCommand && command is not DiscardCommand)
-                    {
-                        transactionManager.EnqueueCommand(connection, new QueuedCommand(commandName, singleRequest, command, args));
-                        await connection.SendResp(new SimpleString("QUEUED"));
-                    }
-                    else
-                    {
-                        var response = await ExecuteCommand(connection, commandName, singleRequest, command, args);
-                        if (response is not SelfHandled)
-                            await connection.SendResp(response);
-                    }
-                }
+                transactionManager.EnqueueCommand(connection, new QueuedCommand(commandName, singleRequest, command, args));
+                await connection.SendResp(new SimpleString("QUEUED"));
             }
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-        }
-        finally
-        {
-            if (redisServer.IsMaster)
-                replicationManager.RemoveReplica(connection);
-
-            connection.Dispose();
+            else
+            {
+                var response = await ExecuteCommand(connection, commandName, singleRequest, command, args);
+                if (response is not SelfHandled)
+                    await connection.SendResp(response);
+            }
         }
     }
 
@@ -77,10 +97,8 @@ public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandPars
 
         var response = await command.Handle(connection, args);
 
-        if (redisServer.IsSlave && connection.IsMaster())
-        {
+        if (redisServer.IsSlave && connection.IsMaster()) 
             redisServer.Offset += request.Length;
-        }
 
         return response;
     }
@@ -95,4 +113,24 @@ public class ConnectionHandler(IServiceProvider serviceProvider, RespCommandPars
     }
 
     private static bool IsWriteCommand(string commandName) => commandName.Equals(SetCommand.Name, StringComparison.OrdinalIgnoreCase);
+
+    private void CleanupConnection(Socket connection)
+    {
+        if (redisServer.IsMaster)
+            replicationManager.RemoveReplica(connection);
+
+        try
+        {
+            if (connection.Connected)
+                connection.Shutdown(SocketShutdown.Both);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Error shutting down connection");
+        }
+        finally
+        {
+            connection.Dispose();
+        }
+    }
 }

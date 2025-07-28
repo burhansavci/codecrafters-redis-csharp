@@ -13,7 +13,7 @@ internal sealed class StreamWaitQueue : IDisposable
 
         using var waiter = new StreamWaiter(streamKey, afterId);
         _waiters.Enqueue(waiter);
-        
+
         return await waiter.Wait(cancellationToken);
     }
 
@@ -21,7 +21,6 @@ internal sealed class StreamWaitQueue : IDisposable
     {
         if (_disposed) return;
 
-        var unmatchedWaiters = new List<StreamWaiter>();
         var processed = 0;
         var initialCount = _waiters.Count;
 
@@ -30,11 +29,8 @@ internal sealed class StreamWaitQueue : IDisposable
             processed++;
 
             if (!waiter.TryComplete(streamKey, streamRecord)) 
-                unmatchedWaiters.Add(waiter);
+                _waiters.Enqueue(waiter);
         }
-
-        foreach (var waiter in unmatchedWaiters) 
-            _waiters.Enqueue(waiter);
     }
 
     public void Dispose()
@@ -63,7 +59,7 @@ internal sealed class StreamWaiter(string key, StreamEntryId afterId) : IDisposa
     {
         if (_disposed || streamKey != key)
             return false;
-        
+
         if (streamRecord.LastEntryId > afterId)
         {
             var entries = streamRecord.GetEntriesAfter(afterId);
