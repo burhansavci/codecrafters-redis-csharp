@@ -2,6 +2,7 @@ using codecrafters_redis.Commands;
 using codecrafters_redis.Rdb;
 using codecrafters_redis.Resp.Parsing;
 using codecrafters_redis.Server;
+using codecrafters_redis.Server.Channels;
 using codecrafters_redis.Server.Replications;
 using codecrafters_redis.Server.Transactions;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,6 +23,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<TransactionManager>();
 
         services.AddSingleton<RespCommandParser>();
+
+        services.AddSingleton<ChannelManager>();
 
         services.AddKeyedScoped<ICommand, PingCommand>(PingCommand.Name);
         services.AddKeyedScoped<ICommand, EchoCommand>(EchoCommand.Name);
@@ -49,6 +52,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, LLenCommand>(LLenCommand.Name);
         services.AddKeyedScoped<ICommand, LPopCommand>(LPopCommand.Name);
         services.AddKeyedScoped<ICommand, BLPopCommand>(BLPopCommand.Name);
+        services.AddKeyedScoped<ICommand, SubscribeCommand>(SubscribeCommand.Name);
     })
     .Build();
 
