@@ -103,6 +103,8 @@ public sealed class RedisServer : IDisposable
                 var connection = await listenSocket.AcceptAsync(cancellationToken);
                 var connectionHandler = _serviceProvider.GetRequiredService<ConnectionHandler>();
                 var connectionTask = new ConnectionTask(connection, connectionHandler.Handle(connection));
+                
+                _logger.LogInformation("Accepted connection from {RemoteEndPoint}", connection.RemoteEndPoint);
 
                 await _connectionHandlerChannel.Writer.WriteAsync(connectionTask, cancellationToken);
             }
