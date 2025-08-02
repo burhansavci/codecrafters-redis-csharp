@@ -8,6 +8,10 @@ public class ChannelManager
     private readonly ConcurrentDictionary<string, ConcurrentBag<Socket>> _channels = new();
     private readonly ConcurrentDictionary<Socket, int> _socketSubscriptionCounts = new();
 
+    public static List<string> AllowedCommandsInSubscribedMode => ["SUBSCRIBE", "UNSUBSCRIBE", "PSUBSCRIBE", "PUNSUBSCRIBE", "PING", "QUIT"];
+
+    public bool IsInSubscribedMode(Socket socket) => _socketSubscriptionCounts.ContainsKey(socket);
+
     public int Subscribe(string channelName, Socket socket)
     {
         ArgumentException.ThrowIfNullOrEmpty(channelName);

@@ -3,6 +3,7 @@ using System.Text;
 using codecrafters_redis.Commands;
 using codecrafters_redis.Resp;
 using codecrafters_redis.Resp.Parsing;
+using codecrafters_redis.Server.Channels;
 using codecrafters_redis.Server.Replications;
 using codecrafters_redis.Server.Transactions;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,6 +17,7 @@ public sealed class ConnectionHandler(
     RedisServer redisServer,
     ReplicationManager replicationManager,
     TransactionManager transactionManager,
+    ChannelManager channelManager,
     ILogger<ConnectionHandler> logger)
 {
     private const int BufferSize = 4 * 1024;
@@ -73,6 +75,15 @@ public sealed class ConnectionHandler(
             var singleRequest = requestArray.ToString();
             var command = scope.ServiceProvider.GetRequiredKeyedService<ICommand>(commandName.ToUpperInvariant());
 
+            if (channelManager.IsInSubscribedMode(connection))
+            {
+                if (!ChannelManager.AllowedCommandsInSubscribedMode.Contains(commandName.ToUpperInvariant()))
+                {
+                    await connection.SendResp(new SimpleError($"ERR Can't execute '{commandName}' in subscribed mode"));
+                    continue;
+                }
+            }
+
             if (transactionManager.IsTransactionInProgress(connection) && command is not ExecCommand && command is not DiscardCommand)
             {
                 transactionManager.EnqueueCommand(connection, new QueuedCommand(commandName, singleRequest, command, args));
@@ -97,7 +108,7 @@ public sealed class ConnectionHandler(
 
         var response = await command.Handle(connection, args);
 
-        if (redisServer.IsSlave && connection.IsMaster()) 
+        if (redisServer.IsSlave && connection.IsMaster())
             redisServer.Offset += request.Length;
 
         return response;
