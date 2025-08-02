@@ -11,7 +11,11 @@ public class RespCommandParser(IServiceProvider serviceProvider)
         try
         {
             var commands = new List<RespCommand>();
-            var requests = request.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
+            
+            // Skip RDB file if present
+            var cleanRequest = SkipRdbFile(request);
+            
+            var requests = cleanRequest.Split(RespObject.CRLF, StringSplitOptions.RemoveEmptyEntries);
 
             for (var index = 0; index < requests.Length; index++)
             {
@@ -43,6 +47,37 @@ public class RespCommandParser(IServiceProvider serviceProvider)
             Console.WriteLine(request.Replace("\r", "\\r").Replace("\n", "\\n"));
             throw;
         }
+    }
+
+    private static string SkipRdbFile(string request)
+    {
+        // Look for RDB file marker - starts with $<length>\r\nREDIS
+        var rdbMarkerIndex = request.IndexOf('$');
+        if (rdbMarkerIndex == -1)
+            return request;
+
+        var crlfAfterMarker = request.IndexOf(RespObject.CRLF, rdbMarkerIndex, StringComparison.Ordinal);
+        if (crlfAfterMarker == -1)
+            return request;
+
+        // Check if this looks like an RDB file (contains "REDIS" after the length marker)
+        var contentStart = crlfAfterMarker + RespObject.CRLF.Length;
+        if (contentStart + 5 < request.Length && request.Substring(contentStart, 5) == "REDIS")
+        {
+            // Extract the <length> of the RDB file
+            var lengthStr = request.Substring(rdbMarkerIndex + 1, crlfAfterMarker - rdbMarkerIndex - 1);
+            if (int.TryParse(lengthStr, out int rdbLength))
+            {
+                // Skip the RDB file: $<length>\r\n<rdb_data>
+                var rdbEndIndex = contentStart + rdbLength;
+                if (rdbEndIndex < request.Length)
+                {
+                    return request[rdbEndIndex..];
+                }
+            }
+        }
+
+        return request;
     }
 
     private static (Array Array, int ArrayItemsLength) ParseArrayRequest(string[] requests, int startIndex)
