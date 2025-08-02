@@ -53,6 +53,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, BLPopCommand>(BLPopCommand.Name);
         services.AddKeyedScoped<ICommand, SubscribeCommand>(SubscribeCommand.Name);
         services.AddKeyedScoped<ICommand, PublishCommand>(PublishCommand.Name);
+        services.AddKeyedScoped<ICommand, UnsubscribeCommand>(UnsubscribeCommand.Name);
     })
     .Build();
 
