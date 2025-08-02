@@ -6,28 +6,28 @@ namespace codecrafters_redis.Server.Channels;
 public class ChannelManager
 {
     private readonly ConcurrentDictionary<string, ConcurrentBag<Socket>> _channels = new();
-    private readonly ConcurrentDictionary<Socket, int> _socketSubscriptionCounts = new();
+    private readonly ConcurrentDictionary<Socket, int> _connectionSubscriptionCounts = new();
 
     public static List<string> AllowedCommandsInSubscribedMode => ["SUBSCRIBE", "UNSUBSCRIBE", "PSUBSCRIBE", "PUNSUBSCRIBE", "PING", "QUIT"];
 
-    public bool IsInSubscribedMode(Socket socket) => _socketSubscriptionCounts.ContainsKey(socket);
+    public bool IsInSubscribedMode(Socket connection) => _connectionSubscriptionCounts.ContainsKey(connection);
 
-    public int Subscribe(string channelName, Socket socket)
+    public int Subscribe(string channelName, Socket connection)
     {
         ArgumentException.ThrowIfNullOrEmpty(channelName);
-        ArgumentNullException.ThrowIfNull(socket);
+        ArgumentNullException.ThrowIfNull(connection);
 
         _channels.AddOrUpdate(
             channelName,
-            [socket],
+            [connection],
             (_, existingSockets) =>
             {
-                existingSockets.Add(socket);
+                existingSockets.Add(connection);
                 return existingSockets;
             });
 
-        return _socketSubscriptionCounts.AddOrUpdate(
-            socket,
+        return _connectionSubscriptionCounts.AddOrUpdate(
+            connection,
             1,
             (_, currentCount) => currentCount + 1
         );
