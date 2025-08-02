@@ -32,4 +32,14 @@ public class ChannelManager
             (_, currentCount) => currentCount + 1
         );
     }
+
+    public int Publish(string channelName, string message)
+    {
+        if (!_channels.TryGetValue(channelName, out var channel))
+            throw new ArgumentException("Channel not found.");
+        
+        //publish logic
+        
+        return channel.Count;
+    }
 }
