@@ -8,7 +8,7 @@ public class PublishCommand(ChannelManager channelManager) : ICommand
 {
     public const string Name = "PUBLISH";
 
-    public Task<RespObject> Handle(Socket connection, RespObject[] args)
+    public async Task<RespObject> Handle(Socket connection, RespObject[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
@@ -17,8 +17,8 @@ public class PublishCommand(ChannelManager channelManager) : ICommand
         var channelName = args[0].GetString("channelName");
         var message = args[1].GetString("message");
 
-        var count = channelManager.Publish(channelName, message);
+        var count = await channelManager.Publish(channelName, message);
 
-        return Task.FromResult<RespObject>(new Integer(count));
+        return new Integer(count);
     }
 }
