@@ -5,5 +5,6 @@ public enum ValueType
 {
     String = 0,
     List = 1,
+    SortedSet = 3,
     Stream = 15
 }

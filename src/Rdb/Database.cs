@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using codecrafters_redis.Rdb.Extensions;
 using codecrafters_redis.Rdb.List;
+using codecrafters_redis.Rdb.SortedSet;
 using codecrafters_redis.Rdb.Stream;
 using codecrafters_redis.Server;
 
@@ -13,6 +14,7 @@ public sealed class Database : IDisposable
     private readonly ConcurrentDictionary<string, Record> _records = new();
     private readonly ListOperations _listOperations;
     private readonly StreamOperations _streamOperations;
+    private readonly SortedSetOperations _sortedSetOperations;
     private bool _disposed;
 
     public Database(RedisConfiguration configuration)
@@ -20,6 +22,7 @@ public sealed class Database : IDisposable
         _configuration = configuration;
         _listOperations = new ListOperations(_records);
         _streamOperations = new StreamOperations(_records);
+        _sortedSetOperations = new SortedSetOperations(_records);
         LoadFromRdb();
     }
 
@@ -55,6 +58,9 @@ public sealed class Database : IDisposable
 
     public async Task<StreamReadResult?> GetStreams(IReadOnlyList<StreamReadRequest> requests, TimeSpan timeout)
         => await _streamOperations.Get(requests, timeout);
+
+    public int ZAdd(string sortedSetKey, decimal score, string member)
+        => _sortedSetOperations.Add(sortedSetKey, score, member);
 
     private void LoadFromRdb()
     {

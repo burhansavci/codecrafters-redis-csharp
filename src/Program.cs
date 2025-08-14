@@ -22,7 +22,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<ReplicationManager>();
         services.AddSingleton<TransactionManager>();
         services.AddSingleton<ChannelManager>();
-        
+
         services.AddSingleton<RespCommandParser>();
 
         services.AddKeyedScoped<ICommand, PingCommand>(PingCommand.Name);
@@ -54,6 +54,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, SubscribeCommand>(SubscribeCommand.Name);
         services.AddKeyedScoped<ICommand, PublishCommand>(PublishCommand.Name);
         services.AddKeyedScoped<ICommand, UnsubscribeCommand>(UnsubscribeCommand.Name);
+        services.AddKeyedScoped<ICommand, ZAddCommand>(ZAddCommand.Name);
     })
     .Build();
 
