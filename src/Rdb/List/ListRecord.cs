@@ -40,7 +40,7 @@ public sealed record ListRecord : Record
 
     public string? PopLeft() => _entries.TryPopLeft(out var value) ? value : null;
 
-    public string? PopRight() => _entries.TryPopLeft(out var value) ? value : null;
+    public string? PopRight() => _entries.TryPopRight(out var value) ? value : null;
 
     public bool TryPopLeft(int count, [MaybeNullWhen(false)] out string[] result)
     {

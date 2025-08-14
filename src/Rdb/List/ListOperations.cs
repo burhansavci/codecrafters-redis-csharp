@@ -95,6 +95,13 @@ public sealed class ListOperations(ConcurrentDictionary<string, Record> records)
         }
         catch (OperationCanceledException)
         {
+            // Final immediate re-check to avoid racing with a just-in-time push/notify
+            foreach (var listKey in listKeys)
+            {
+                var values = Pop(listKey, 1, direction);
+                if (values != null)
+                    return new ListPopResult(listKey, values[0]);
+            }
             return null;
         }
         finally
