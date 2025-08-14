@@ -27,18 +27,21 @@ public record SortedSetRecord : Record
 
     public int Add(SortedSetItem item)
     {
-        if (_memberScores.TryGetValue(item.Member, out decimal oldScore))
+        if (!_memberScores.TryGetValue(item.Member, out var oldScore))
         {
-            if (oldScore == item.Score)
-                return 0;
-
-            var oldItem = item with { Score = oldScore };
-            _sortedSet.Remove(oldItem);
+            _sortedSet.Add(item);
+            _memberScores[item.Member] = item.Score;
+            return 1;
         }
 
+        if (oldScore == item.Score)
+            return 0;
+
+        var oldItem = item with { Score = oldScore };
+        _sortedSet.Remove(oldItem);
         _sortedSet.Add(item);
         _memberScores[item.Member] = item.Score;
-
-        return 1;
+        return 0;
     }
+
 }
