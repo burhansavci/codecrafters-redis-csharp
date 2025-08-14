@@ -25,6 +25,14 @@ public sealed class SortedSetOperations(ConcurrentDictionary<string, Record> rec
         return sortedSet.Add(newItem);
     }
 
+    public int? Rank(string sortedSetKey, string member)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentException.ThrowIfNullOrEmpty(sortedSetKey);
+        ArgumentNullException.ThrowIfNull(member);
+        
+        return !records.TryGetRecord<SortedSetRecord>(sortedSetKey, out var sortedSet) ? null : sortedSet.Rank(member);
+    }
 
     public void Dispose()
     {

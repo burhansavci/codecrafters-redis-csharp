@@ -44,4 +44,13 @@ public record SortedSetRecord : Record
         return 0;
     }
 
+    public int? Rank(string member)
+    {
+        if (!_memberScores.TryGetValue(member, out var score))
+            return null;
+
+        var item = new SortedSetItem(score, member);
+
+        return _sortedSet.GetViewBetween(_sortedSet.Min, item).Count - 1;
+    }
 }
