@@ -10,6 +10,8 @@ public record SortedSetRecord : Record
         _sortedSet = sortedSet;
         _memberScores = memberScores;
     }
+    
+    public int Count => _sortedSet.Count;
 
     public static SortedSetRecord Create(SortedSetItem[] entries, DateTime? expireAt = null)
     {
@@ -52,5 +54,18 @@ public record SortedSetRecord : Record
         var item = new SortedSetItem(score, member);
 
         return _sortedSet.GetViewBetween(_sortedSet.Min, item).Count - 1;
+    }
+
+    public SortedSetItem[] GetEntriesInRange(int startIndex, int endIndex)
+    {
+        if (startIndex < 0 || endIndex < 0 || startIndex > endIndex || _sortedSet.Count == 0)
+            return [];
+
+        startIndex = Math.Max(0, Math.Min(startIndex, _sortedSet.Count - 1));
+        endIndex = Math.Max(startIndex, Math.Min(endIndex, _sortedSet.Count - 1));
+
+        var length = endIndex - startIndex + 1;
+        
+        return _sortedSet.Skip(startIndex).Take(length).ToArray();
     }
 }

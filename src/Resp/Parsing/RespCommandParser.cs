@@ -60,15 +60,10 @@ public class RespCommandParser(IServiceProvider serviceProvider, ILogger<RespCom
         var contentStart = crlfIndex + RespObject.CRLF.Length;
         if (contentStart + 5 >= request.Length || !request.AsSpan(contentStart, 5).SequenceEqual("REDIS".AsSpan()))
             return request;
-
-        // Extract the <length> of the RDB file from $<length>\r\n<rdb_data>
-        var lengthStr = request.AsSpan(1, crlfIndex - 1);
-        if (!int.TryParse(lengthStr, out var rdbLength))
-            return request;
-
-        // Skip the RDB file: $<length>\r\n<rdb_data>
-        var rdbEndIndex = contentStart + rdbLength;
-        return rdbEndIndex < request.Length ? request[rdbEndIndex..] : string.Empty;
+        
+        // Skip everything up to the first RESP array header ('*') that follows the RDB payload.
+        var nextArrayIndex = request.IndexOf(DataType.Array, contentStart);
+        return nextArrayIndex == -1 ? string.Empty : request[nextArrayIndex..];
     }
 
     private static (Array Array, int ArrayItemsLength) ParseArrayRequest(string[] requests, int startIndex)

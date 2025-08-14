@@ -56,6 +56,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, UnsubscribeCommand>(UnsubscribeCommand.Name);
         services.AddKeyedScoped<ICommand, ZAddCommand>(ZAddCommand.Name);
         services.AddKeyedScoped<ICommand, ZRankCommand>(ZRankCommand.Name);
+        services.AddKeyedScoped<ICommand, ZRangeCommand>(ZRangeCommand.Name);
     })
     .Build();
 
