@@ -21,14 +21,12 @@ public class RespCommandParser(IServiceProvider serviceProvider, ILogger<RespCom
             for (var index = 0; index < requests.Length; index++)
             {
                 var requestPart = requests[index];
-
-                if (!requestPart.StartsWith(DataType.Array))
-                    continue;
                 
-                if (requestPart.Length < 2)
+                // Only consider real array headers: '*' followed by digits (e.g., "*3")
+                if (!IsArrayHeader(requestPart))
                 {
-                    logger.LogError("Request: {Request} Index: {Index}", request.Replace("\r", "\\r").Replace("\n", "\\n"), index);
-                    logger.LogError("Skipping malformed array indicator: '{RequestPart}'", requestPart.Replace("\r", "\\r").Replace("\n", "\\n"));
+                    logger.LogWarning("Request: {Request} CleanRequest: {CleanRequest}  Index: {Index}", request.Replace("\r", "\\r").Replace("\n", "\\n"), cleanRequest.Replace("\r", "\\r").Replace("\n", "\\n"), index);
+                    logger.LogWarning("Skipping malformed array indicator: '{RequestPart}'", requestPart.Replace("\r", "\\r").Replace("\n", "\\n"));
                     continue;
                 }
 
@@ -43,7 +41,7 @@ public class RespCommandParser(IServiceProvider serviceProvider, ILogger<RespCom
         }
         catch (Exception)
         {
-            Console.WriteLine(request.Replace("\r", "\\r").Replace("\n", "\\n"));
+            logger.LogError("An error occured during parsing RESP command. Request: {Request}", request.Replace("\r", "\\r").Replace("\n", "\\n"));
             throw;
         }
     }
@@ -118,5 +116,19 @@ public class RespCommandParser(IServiceProvider serviceProvider, ILogger<RespCom
 
         var args = array.Items.Skip(skipCount).ToArray();
         return (commandName, args);
+    }
+
+    private static bool IsArrayHeader(string s)
+    {
+        if (string.IsNullOrEmpty(s) || s[0] != DataType.Array || s.Length < 2)
+            return false;
+
+        for (int i = 1; i < s.Length; i++)
+        {
+            if (!char.IsDigit(s[i]))
+                return false;
+        }
+
+        return true;
     }
 }
