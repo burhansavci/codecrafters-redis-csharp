@@ -45,6 +45,17 @@ public record SortedSetRecord : Record
         _memberScores[item.Member] = item.Score;
         return 0;
     }
+    
+    public int Remove(string member)
+    {
+        if(!_memberScores.TryGetValue(member, out var score))
+            return 0;
+        
+        var item = new SortedSetItem(score, member);
+        _sortedSet.Remove(item);
+        _memberScores.Remove(member);
+        return 1;   
+    }
 
     public int? Rank(string member)
     {

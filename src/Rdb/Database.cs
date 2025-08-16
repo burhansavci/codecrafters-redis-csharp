@@ -68,6 +68,8 @@ public sealed class Database : IDisposable
     public decimal? ZScore(string sortedSetKey, string member)
         => _sortedSetOperations.Score(sortedSetKey, member);
 
+    public int ZRem(string sortedSetKey, string member)
+        => _sortedSetOperations.Remove(sortedSetKey, member);
 
     private void LoadFromRdb()
     {
