@@ -58,6 +58,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, ZRankCommand>(ZRankCommand.Name);
         services.AddKeyedScoped<ICommand, ZRangeCommand>(ZRangeCommand.Name);
         services.AddKeyedScoped<ICommand, ZCardCommand>(ZCardCommand.Name);
+        services.AddKeyedScoped<ICommand, ZScoreCommand>(ZScoreCommand.Name);
     })
     .Build();
 

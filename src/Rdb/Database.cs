@@ -61,9 +61,13 @@ public sealed class Database : IDisposable
 
     public int ZAdd(string sortedSetKey, decimal score, string member)
         => _sortedSetOperations.Add(sortedSetKey, score, member);
-    
+
     public int? ZRank(string sortedSetKey, string member)
         => _sortedSetOperations.Rank(sortedSetKey, member);
+
+    public decimal? ZScore(string sortedSetKey, string member)
+        => _sortedSetOperations.Score(sortedSetKey, member);
+
 
     private void LoadFromRdb()
     {

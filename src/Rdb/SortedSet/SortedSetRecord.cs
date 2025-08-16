@@ -55,6 +55,14 @@ public record SortedSetRecord : Record
 
         return _sortedSet.GetViewBetween(_sortedSet.Min, item).Count - 1;
     }
+    
+    public decimal? Score(string member)
+    {
+        if (!_memberScores.TryGetValue(member, out var score))
+            return null;
+        
+        return score;   
+    }
 
     public SortedSetItem[] GetEntriesInRange(int startIndex, int endIndex)
     {
