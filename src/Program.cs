@@ -60,6 +60,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, ZCardCommand>(ZCardCommand.Name);
         services.AddKeyedScoped<ICommand, ZScoreCommand>(ZScoreCommand.Name);
         services.AddKeyedScoped<ICommand, ZRemCommand>(ZRemCommand.Name);
+        services.AddKeyedScoped<ICommand, GeoAddCommand>(GeoAddCommand.Name);
     })
     .Build();
 
