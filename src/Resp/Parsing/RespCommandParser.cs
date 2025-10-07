@@ -21,7 +21,7 @@ public class RespCommandParser(IServiceProvider serviceProvider, ILogger<RespCom
             for (var index = 0; index < requests.Length; index++)
             {
                 var requestPart = requests[index];
-                
+
                 // Only consider real array headers: '*' followed by digits (e.g., "*3")
                 if (!IsArrayHeader(requestPart))
                 {
@@ -60,7 +60,7 @@ public class RespCommandParser(IServiceProvider serviceProvider, ILogger<RespCom
         var contentStart = crlfIndex + RespObject.CRLF.Length;
         if (contentStart + 5 >= request.Length || !request.AsSpan(contentStart, 5).SequenceEqual("REDIS".AsSpan()))
             return request;
-        
+
         // Skip everything up to the first RESP array header ('*') that follows the RDB payload.
         var nextArrayIndex = request.IndexOf(DataType.Array, contentStart);
         return nextArrayIndex == -1 ? string.Empty : request[nextArrayIndex..];
@@ -89,7 +89,7 @@ public class RespCommandParser(IServiceProvider serviceProvider, ILogger<RespCom
 
     private (string CommandName, RespObject[] Args) ExtractCommandAndArgs(Array array)
     {
-        if (array.Items.Length == 0)
+        if (array.Items is null || array.Items.Length == 0)
             throw new ArgumentException("Empty command array");
 
         var commandMessage = (BulkString)array.Items[0];

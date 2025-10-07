@@ -101,11 +101,12 @@ public sealed class RedisServer : IDisposable
             while (!cancellationToken.IsCancellationRequested)
             {
                 var connection = await listenSocket.AcceptAsync(cancellationToken);
+                
+                _logger.LogInformation("Accepted connection from {RemoteEndPoint}", connection.RemoteEndPoint);
+                
                 var connectionHandler = _serviceProvider.GetRequiredService<ConnectionHandler>();
                 var connectionTask = new ConnectionTask(connection, connectionHandler.Handle(connection));
                 
-                _logger.LogInformation("Accepted connection from {RemoteEndPoint}", connection.RemoteEndPoint);
-
                 await _connectionHandlerChannel.Writer.WriteAsync(connectionTask, cancellationToken);
             }
         }
@@ -140,8 +141,6 @@ public sealed class RedisServer : IDisposable
                 }
                 else
                 {
-                    _logger.LogInformation("Connection from {RemoteEndPoint} is still being handled", connectionTask.Connection.RemoteEndPoint);
-                    
                     await _connectionHandlerChannel.Writer.WriteAsync(connectionTask, cancellationToken);
                 }
             }
