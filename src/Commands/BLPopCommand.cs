@@ -26,6 +26,6 @@ public class BLPopCommand(Database db) : ICommand
 
         return result != null
             ? new Array(new BulkString(result.ListKey), new BulkString(result.Value))
-            : new BulkString(null);
+            : new Array(null);
     }
 }

@@ -22,7 +22,7 @@ public sealed class XReadCommand(Database db) : ICommand
             
             var result = await db.GetStreams(streamRequests, blockTimeout);
             
-            return result != null ? CreateResponseArray(result) : new BulkString(null);
+            return result != null ? CreateResponseArray(result) : new Array(null);
         }
         catch (Exception ex)
         {

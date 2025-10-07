@@ -2,9 +2,9 @@ using System.Text;
 
 namespace codecrafters_redis.Resp;
 
-public record Array(params RespObject[] Items) : RespObject(DataType.Array)
+public record Array(params RespObject[]? Items) : RespObject(DataType.Array)
 {
-    public int Length => Items.Length;
+    public int Length => Items?.Length ?? 0;
 
     public static Array Empty => new();
 
@@ -85,6 +85,9 @@ public record Array(params RespObject[] Items) : RespObject(DataType.Array)
 
     public override string ToString()
     {
+        if (Items is null)
+            return $"{FirstByte}-1{CRLF}";
+
         var header = $"{FirstByte}{Length}{CRLF}";
 
         if (Length == 0)
