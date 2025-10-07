@@ -128,6 +128,8 @@ public sealed class RedisServer : IDisposable
             {
                 if (connectionTask.Task.IsCompleted)
                 {
+                    _logger.LogInformation("Connection from {RemoteEndPoint} handled", connectionTask.Connection.RemoteEndPoint);
+                    
                     var shouldConnectionContinue = await connectionTask.Task;
                     if (shouldConnectionContinue)
                     {
@@ -138,6 +140,8 @@ public sealed class RedisServer : IDisposable
                 }
                 else
                 {
+                    _logger.LogInformation("Connection from {RemoteEndPoint} is still being handled", connectionTask.Connection.RemoteEndPoint);
+                    
                     await _connectionHandlerChannel.Writer.WriteAsync(connectionTask, cancellationToken);
                 }
             }
