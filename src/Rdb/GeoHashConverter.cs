@@ -2,12 +2,12 @@ namespace codecrafters_redis.Rdb;
 
 public static class GeoHashConverter
 {
-    private const double MinLongitude = -180;
-    private const double MaxLongitude = 180;
+    public const double MinLongitude = -180;
+    public const double MaxLongitude = 180;
     private const double LongitudeRange = MaxLongitude - MinLongitude;
 
-    private const double MinLatitude = -85.05112878;
-    private const double MaxLatitude = 85.05112878;
+    public const double MinLatitude = -85.05112878;
+    public const double MaxLatitude = 85.05112878;
     private const double LatitudeRange = MaxLatitude - MinLatitude;
 
     /// <summary>

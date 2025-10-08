@@ -22,7 +22,8 @@ public class GeoAddCommand(Database db) : ICommand
         if (!double.TryParse(args[2].GetString("latitude"), out var latitude))
             throw new ArgumentException("Invalid latitude. Expected decimal.");
 
-        if (longitude is < -180 or > 180 || latitude is < -85.05112878d or > 85.05112878d)
+        if (longitude is < GeoHashConverter.MinLongitude or > GeoHashConverter.MaxLongitude ||
+            latitude is < GeoHashConverter.MinLatitude or > GeoHashConverter.MaxLatitude)
             return Task.FromResult<RespObject>(new SimpleError($"ERR invalid longitude,latitude pair {longitude},{latitude}"));
 
         var member = args[3].GetString("member");
