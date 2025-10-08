@@ -1,9 +1,10 @@
 using System.Net.Sockets;
+using codecrafters_redis.Rdb;
 using codecrafters_redis.Resp;
 
 namespace codecrafters_redis.Commands;
 
-public class GeoAddCommand : ICommand
+public class GeoAddCommand(Database db) : ICommand
 {
     public const string Name = "GEOADD";
 
@@ -25,6 +26,8 @@ public class GeoAddCommand : ICommand
             return Task.FromResult<RespObject>(new SimpleError($"ERR invalid longitude,latitude pair {longitude},{latitude}"));
 
         var member = args[3].GetString("member");
+
+        db.ZAdd(key, 0, member);
 
         return Task.FromResult<RespObject>(new Integer(1));
     }
