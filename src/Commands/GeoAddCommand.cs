@@ -16,18 +16,18 @@ public class GeoAddCommand(Database db) : ICommand
 
         var key = args[0].GetString("key");
 
-        if (!decimal.TryParse(args[1].GetString("longitude"), out var longitude))
+        if (!double.TryParse(args[1].GetString("longitude"), out var longitude))
             throw new ArgumentException("Invalid longitude. Expected decimal.");
 
-        if (!decimal.TryParse(args[2].GetString("latitude"), out var latitude))
+        if (!double.TryParse(args[2].GetString("latitude"), out var latitude))
             throw new ArgumentException("Invalid latitude. Expected decimal.");
 
-        if (longitude is < -180 or > 180 || latitude is < -85.05112878m or > 85.05112878m)
+        if (longitude is < -180 or > 180 || latitude is < -85.05112878d or > 85.05112878d)
             return Task.FromResult<RespObject>(new SimpleError($"ERR invalid longitude,latitude pair {longitude},{latitude}"));
 
         var member = args[3].GetString("member");
 
-        db.ZAdd(key, 0, member);
+        db.GeoAdd(key, longitude, latitude, member);
 
         return Task.FromResult<RespObject>(new Integer(1));
     }

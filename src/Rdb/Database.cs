@@ -71,6 +71,13 @@ public sealed class Database : IDisposable
     public int ZRem(string sortedSetKey, string member)
         => _sortedSetOperations.Remove(sortedSetKey, member);
 
+    public int GeoAdd(string sortedSetKey, double longitude, double latitude, string member)
+    {
+        var score = GeoHashConverter.Encode(longitude, latitude);
+
+        return _sortedSetOperations.Add(sortedSetKey, score, member);
+    }
+    
     private void LoadFromRdb()
     {
         if (string.IsNullOrWhiteSpace(_configuration.Directory) || string.IsNullOrWhiteSpace(_configuration.DbFileName))
