@@ -63,6 +63,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddKeyedScoped<ICommand, GeoAddCommand>(GeoAddCommand.Name);
         services.AddKeyedScoped<ICommand, GeoPosCommand>(GeoPosCommand.Name);
         services.AddKeyedScoped<ICommand, GeoDistCommand>(GeoDistCommand.Name);
+        services.AddKeyedScoped<ICommand, GeoSearchCommand>(GeoSearchCommand.Name);
     })
     .Build();
 

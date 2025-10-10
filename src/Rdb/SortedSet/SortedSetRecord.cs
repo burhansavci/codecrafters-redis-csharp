@@ -10,7 +10,7 @@ public record SortedSetRecord : Record
         _sortedSet = sortedSet;
         _memberScores = memberScores;
     }
-    
+
     public int Count => _sortedSet.Count;
 
     public static SortedSetRecord Create(SortedSetItem[] entries, DateTime? expireAt = null)
@@ -45,16 +45,16 @@ public record SortedSetRecord : Record
         _memberScores[item.Member] = item.Score;
         return 0;
     }
-    
+
     public int Remove(string member)
     {
-        if(!_memberScores.TryGetValue(member, out var score))
+        if (!_memberScores.TryGetValue(member, out var score))
             return 0;
-        
+
         var item = new SortedSetItem(score, member);
         _sortedSet.Remove(item);
         _memberScores.Remove(member);
-        return 1;   
+        return 1;
     }
 
     public int? Rank(string member)
@@ -66,13 +66,13 @@ public record SortedSetRecord : Record
 
         return _sortedSet.GetViewBetween(_sortedSet.Min, item).Count - 1;
     }
-    
+
     public decimal? Score(string member)
     {
         if (!_memberScores.TryGetValue(member, out var score))
             return null;
-        
-        return score;   
+
+        return score;
     }
 
     public SortedSetItem[] GetEntriesInRange(int startIndex, int endIndex)
@@ -84,7 +84,9 @@ public record SortedSetRecord : Record
         endIndex = Math.Max(startIndex, Math.Min(endIndex, _sortedSet.Count - 1));
 
         var length = endIndex - startIndex + 1;
-        
+
         return _sortedSet.Skip(startIndex).Take(length).ToArray();
     }
+
+    public IEnumerable<SortedSetItem> GetAllEntries() => _sortedSet;
 }

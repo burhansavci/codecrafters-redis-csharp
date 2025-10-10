@@ -102,6 +102,31 @@ public sealed class Database : IDisposable
 
         return Haversine.Calculate(lon1, lat1, lon2, lat2);
     }
+    
+    public List<string>? GeoSearch(string key, double longitude, double latitude, double radius, string unit)
+    {
+        if(unit != "m")
+            throw new NotSupportedException("Only m (meter) unit is supported for now.");
+
+        if (!TryGetRecord<SortedSetRecord>(key, out var sortedSet))
+            return null;
+
+        var results = new List<string>();
+
+        // It can be optimized to O(N+log(M)) (https://redis.io/docs/latest/commands/geosearch/)
+        // where N is the number of elements in the grid-aligned bounding box area around the shape provided as the filter and M is the number of items inside the shape
+        // but for the simplicity, I'll use O(N)
+        foreach (var entry in sortedSet.GetAllEntries())
+        {
+            var (memberLon, memberLat) = GeoHashConverter.Decode((long)entry.Score);
+            var distance = Haversine.Calculate(longitude, latitude, memberLon, memberLat);
+
+            if (distance <= radius)
+                results.Add(entry.Member);
+        }
+
+        return results;
+    }
 
     private void LoadFromRdb()
     {
