@@ -1,4 +1,4 @@
-namespace codecrafters_redis.Rdb;
+namespace codecrafters_redis.Rdb.Extensions.Geo;
 
 public static class GeoHashConverter
 {

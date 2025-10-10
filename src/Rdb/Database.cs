@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using codecrafters_redis.Rdb.Extensions;
+using codecrafters_redis.Rdb.Extensions.Geo;
 using codecrafters_redis.Rdb.List;
 using codecrafters_redis.Rdb.SortedSet;
 using codecrafters_redis.Rdb.Stream;
@@ -86,6 +87,20 @@ public sealed class Database : IDisposable
             return null;
 
         return GeoHashConverter.Decode((long)score.Value);
+    }
+
+    public double? GeoDistance(string key, string firstMember, string secondMember)
+    {
+        var firstMemberScore = _sortedSetOperations.Score(key, firstMember);
+        var secondMemberScore = _sortedSetOperations.Score(key, secondMember);
+
+        if (firstMemberScore == null || secondMemberScore == null)
+            return null;
+
+        var (lon1, lat1) = GeoHashConverter.Decode((long)firstMemberScore.Value);
+        var (lon2, lat2) = GeoHashConverter.Decode((long)secondMemberScore.Value);
+
+        return Haversine.Calculate(lon1, lat1, lon2, lat2);
     }
 
     private void LoadFromRdb()

@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using codecrafters_redis.Rdb;
+using codecrafters_redis.Rdb.Extensions.Geo;
 using codecrafters_redis.Resp;
 
 namespace codecrafters_redis.Commands;
