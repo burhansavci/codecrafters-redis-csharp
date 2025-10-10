@@ -15,12 +15,10 @@ public class SetCommand(Database db) : ICommand
         ArgumentOutOfRangeException.ThrowIfZero(args.Length);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(args.Length, 4);
 
-        var utcNow = DateTime.UtcNow;
-        TimeSpan? expireTime = null;
-
         var key = args[0].GetString("key");
         var value = args[1].GetString("value");
 
+        TimeSpan? expireTime = null;
         if (args.Length > 2)
         {
             var expireOption = args[2].GetString("expire option");
@@ -36,7 +34,7 @@ public class SetCommand(Database db) : ICommand
             expireTime = TimeSpan.FromMilliseconds(expireTimeMsLong);
         }
 
-        db.AddOrUpdate(key, new StringRecord(value!, utcNow + expireTime));
+        db.AddOrUpdate(key, new StringRecord(value, DateTime.UtcNow + expireTime));
 
         return Task.FromResult<RespObject>(SimpleString.Ok);
     }
