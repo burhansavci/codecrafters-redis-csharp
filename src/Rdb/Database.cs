@@ -77,7 +77,17 @@ public sealed class Database : IDisposable
 
         return _sortedSetOperations.Add(sortedSetKey, score, member);
     }
-    
+
+    public (double Longitude, double Latitude)? GeoPos(string key, string member)
+    {
+        var score = _sortedSetOperations.Score(key, member);
+
+        if (score == null)
+            return null;
+
+        return GeoHashConverter.Decode((long)score.Value);
+    }
+
     private void LoadFromRdb()
     {
         if (string.IsNullOrWhiteSpace(_configuration.Directory) || string.IsNullOrWhiteSpace(_configuration.DbFileName))
