@@ -21,7 +21,7 @@ public class RPushCommand(Database db) : ICommand
         if (values.Length == 0)
             throw new ArgumentException("Invalid values. Expected at least one value.");
 
-        var count = db.Push(listKey, values, ListPushDirection.Right);
+        var count = db.List.Push(listKey, values, ListPushDirection.Right);
 
         return Task.FromResult<RespObject>(new Integer(count));
     }

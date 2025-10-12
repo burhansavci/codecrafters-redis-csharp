@@ -18,7 +18,7 @@ public class LPopCommand(Database db) : ICommand
         var listKey = args[0].GetString("listKey");
         var count = args.Length > 1 ? int.Parse(args[1].GetString("count")) : 1;
         
-        var values = db.Pop(listKey, count);
+        var values = db.List.Pop(listKey, count);
 
         if (values is null)
             return Task.FromResult<RespObject>(new BulkString(null));

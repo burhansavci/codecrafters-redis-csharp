@@ -22,7 +22,7 @@ public class BLPopCommand(Database db) : ICommand
 
         var timeout = timeoutSeconds == 0 ? Timeout.InfiniteTimeSpan : TimeSpan.FromSeconds(timeoutSeconds);
 
-        var result = await db.Pop(listKeys, timeout, ListPopDirection.Left);
+        var result = await db.List.Pop(listKeys, timeout, ListPopDirection.Left);
 
         return result != null
             ? new Array(new BulkString(result.ListKey), new BulkString(result.Value))

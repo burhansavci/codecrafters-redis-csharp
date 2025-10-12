@@ -17,7 +17,7 @@ public class ZRankCommand(Database db) : ICommand
         var sortedSetKey = args[0].GetString("sortedSetKey");
         var member = args[1].GetString("member");
 
-        var index = db.ZRank(sortedSetKey, member);
+        var index = db.SortedSet.Rank(sortedSetKey, member);
 
         return index is null
             ? Task.FromResult<RespObject>(new BulkString(null))

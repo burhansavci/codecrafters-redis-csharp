@@ -17,7 +17,7 @@ public class ZScoreCommand(Database db) : ICommand
         var sortedSetKey = args[0].GetString("sortedSetKey");
         var member = args[1].GetString("member");
 
-        var score = db.ZScore(sortedSetKey, member);
+        var score = db.SortedSet.Score(sortedSetKey, member);
 
         return Task.FromResult<RespObject>(new BulkString(score?.ToString()));
     }

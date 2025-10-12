@@ -20,7 +20,7 @@ public sealed class XReadCommand(Database db) : ICommand
         {
             var (blockTimeout, streamRequests) = ParseArguments(args);
             
-            var result = await db.GetStreams(streamRequests, blockTimeout);
+            var result = await db.Stream.Get(streamRequests, blockTimeout);
             
             return result != null ? CreateResponseArray(result) : new Array(null);
         }

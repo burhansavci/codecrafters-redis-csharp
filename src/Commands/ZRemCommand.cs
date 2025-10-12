@@ -17,7 +17,7 @@ public class ZRemCommand(Database db) : ICommand
         var sortedSetKey = args[0].GetString("sortedSetKey");
         var member = args[1].GetString("member");
 
-        var count = db.ZRem(sortedSetKey, member);
+        var count = db.SortedSet.Remove(sortedSetKey, member);
 
         return Task.FromResult<RespObject>(new Integer(count));
     }

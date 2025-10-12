@@ -21,7 +21,7 @@ public class ZAddCommand(Database db) : ICommand
         
         var member = args[2].GetString("member");
 
-        var count = db.ZAdd(sortedSetKey, score, member);
+        var count = db.SortedSet.Add(sortedSetKey, score, member);
 
         return Task.FromResult<RespObject>(new Integer(count));
     }

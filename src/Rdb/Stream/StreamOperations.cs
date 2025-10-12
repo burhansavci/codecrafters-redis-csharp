@@ -3,7 +3,7 @@ using codecrafters_redis.Rdb.Extensions;
 
 namespace codecrafters_redis.Rdb.Stream;
 
-internal sealed class StreamOperations(ConcurrentDictionary<string, Record> records) : IDisposable
+public sealed class StreamOperations(ConcurrentDictionary<string, Record> records) : IDisposable
 {
     private const string SpecialId = "$";
 

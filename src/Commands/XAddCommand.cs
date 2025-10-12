@@ -19,7 +19,7 @@ public sealed class XAddCommand(Database db) : ICommand
         {
             var (streamKey, id, fields) = ValidateAndParseArguments(args);
 
-            var entryId = db.AddStreamEntry(streamKey, id, fields);
+            var entryId = db.Stream.AddStreamEntry(streamKey, id, fields);
 
             return Task.FromResult<RespObject>(new BulkString(entryId.ToString()));
         }
